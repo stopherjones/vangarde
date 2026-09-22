@@ -86,11 +86,17 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               <div className="p-1.5 bg-[#bce3cb]/40 rounded border border-[#2b261f]/20">
                 <strong>Supply Caches:</strong> Abundant food & water caches (+1, +2, or +3 Energy) scattered through the wilderness.
               </div>
-              <div className="p-1.5 bg-[#dbc5ea]/40 rounded border border-[#2b261f]/20">
+              <div className="p-1.5 bg-[#dbc5ea]/40 rounded border border-[#2b261f]/20 sm:col-span-2">
                 <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Ancient Map (highlights all possible hexes in the goal quadrant; toggle on/off via header 🗺️ icon), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Map & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
               </div>
-              <div className="p-1.5 bg-[#d9d0c1] rounded border border-[#2b261f]/20">
-                <strong>Clue Cairns:</strong> One in every column! Whispers the compass bearing towards the Golden Beacon.
+              <div className="p-1.5 bg-[#d9d0c1] rounded border border-[#2b261f]/20 sm:col-span-2">
+                <strong>Clue Cairns (1 per column):</strong> Activates both when landed on or passed over, etching a compass bearing to the Golden Beacon:
+                <div className="mt-1 pl-2 border-l-2 border-[#2b261f]/30 space-y-0.5 text-[10.5px]">
+                  <div>• <strong>Due North (↑ N):</strong> 3-column cone — the beacon is north within this cairn's own column or 1 column to either side (same column, 1 col West, or 1 col East).</div>
+                  <div>• <strong>North-East (↗ NE):</strong> Beacon is 2 or more columns to the East.</div>
+                  <div>• <strong>North-West (↖ NW):</strong> Beacon is 2 or more columns to the West.</div>
+                  <div>• <strong>Directly North:</strong> Beacon is adjacent in the hex directly above.</div>
+                </div>
               </div>
             </div>
           </div>
