@@ -1,7 +1,7 @@
 import { HexTile, HexCoord, HexType } from '../types';
 import { GRID_COLS, GRID_ROWS, hexDistance } from './hexMath';
 
-export const START_COORD: HexCoord = { col: 4, row: 11 };
+export const START_COORD: HexCoord = { col: 5, row: 11 };
 
 export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoord; towerCoords: HexCoord[] } {
   const tiles = new Map<string, HexTile>();
@@ -17,7 +17,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
   const potentialGoals = allCoords.filter(
     (coord) => coord.row <= 3 && hexDistance(coord, START_COORD) >= 8
   );
-  const goalCoord = potentialGoals[Math.floor(Math.random() * potentialGoals.length)] || { col: 4, row: 1 };
+  const goalCoord = potentialGoals[Math.floor(Math.random() * potentialGoals.length)] || { col: 5, row: 1 };
 
   // Helper to pick non-overlapping random coords
   const occupied = new Set<string>();

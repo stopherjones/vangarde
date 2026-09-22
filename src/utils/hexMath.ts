@@ -1,6 +1,6 @@
 import { DirectionIndex, HexCoord } from '../types';
 
-export const GRID_COLS = 10;
+export const GRID_COLS = 11;
 export const GRID_ROWS = 12;
 
 export const DIRECTION_LABELS: Record<DirectionIndex, { label: string; arrow: string; short: string }> = {
@@ -123,16 +123,31 @@ export function getQuadrant(coord: HexCoord): {
   bounds: string;
 } {
   const isNorth = coord.row < 6;
-  const isWest = coord.col < 5;
+  const isWest = coord.col <= 5;
   if (isNorth && isWest) {
-    return { code: 'NW', name: 'Northwest', bounds: 'Cols 0–4, Rows 0–5' };
+    return { code: 'NW', name: 'Northwest', bounds: 'Cols 0–5, Rows 0–5' };
   } else if (isNorth && !isWest) {
-    return { code: 'NE', name: 'Northeast', bounds: 'Cols 5–9, Rows 0–5' };
+    return { code: 'NE', name: 'Northeast', bounds: 'Cols 5–10, Rows 0–5' };
   } else if (!isNorth && isWest) {
-    return { code: 'SW', name: 'Southwest', bounds: 'Cols 0–4, Rows 6–11' };
+    return { code: 'SW', name: 'Southwest', bounds: 'Cols 0–5, Rows 6–11' };
   } else {
-    return { code: 'SE', name: 'Southeast', bounds: 'Cols 5–9, Rows 6–11' };
+    return { code: 'SE', name: 'Southeast', bounds: 'Cols 5–10, Rows 6–11' };
   }
+}
+
+// Check if a coordinate falls inside a specific quadrant
+export function isCoordInQuadrant(
+  coord: HexCoord,
+  code: 'NW' | 'NE' | 'SW' | 'SE'
+): boolean {
+  const isNorth = coord.row < 6;
+  const isWest = coord.col <= 5;
+  const isEast = coord.col >= 5;
+  if (code === 'NW') return isNorth && isWest;
+  if (code === 'NE') return isNorth && isEast;
+  if (code === 'SW') return !isNorth && isWest;
+  if (code === 'SE') return !isNorth && isEast;
+  return false;
 }
 
 // Calculate next hex step with edge bouncing reflection so players never get stuck at map boundaries

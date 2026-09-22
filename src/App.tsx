@@ -28,7 +28,7 @@ import { RulesModal } from './components/RulesModal';
 import { EventModal } from './components/EventModal';
 import { GameOverModal } from './components/GameOverModal';
 
-const MAX_ENERGY = 28;
+const MAX_ENERGY = 30;
 
 export default function App() {
   // Game Map State
@@ -99,6 +99,9 @@ export default function App() {
   // Dice Modifier (from Shrines): allows +/- 1 adjustment to either movement die each turn
   const [hasDiceModifier, setHasDiceModifier] = useState<boolean>(false);
 
+  // Ancient Map highlight toggle (shows/hides candidate sector hexes)
+  const [showMapHighlight, setShowMapHighlight] = useState<boolean>(true);
+
   // Modal Dialogs
   const [showRules, setShowRules] = useState<boolean>(false);
   const [eventPrompt, setEventPrompt] = useState<EventPrompt | null>(null);
@@ -112,6 +115,7 @@ export default function App() {
     setVisitedTowerCount(0);
     setGoalClue(null);
     setGoalQuadrant(null);
+    setShowMapHighlight(true);
     setHasTelescope(false);
     setHasDiceModifier(false);
     setEnergy(MAX_ENERGY);
@@ -659,6 +663,21 @@ export default function App() {
     executeMoveTo(pathPreview);
   };
 
+  // Toggle highlight for Ancient Map candidate hexes
+  const handleToggleMapHighlight = () => {
+    if (!goalQuadrant) return;
+    sounds.playClick();
+    setShowMapHighlight((prev) => {
+      const next = !prev;
+      setStatusMessage(
+        next
+          ? `Ancient Map: Candidate hexes in ${goalQuadrant.name} Quadrant (${goalQuadrant.code}) highlighted.`
+          : 'Ancient Map: Candidate hexes highlight hidden.'
+      );
+      return next;
+    });
+  };
+
   // Resolve Fate Event Roll from Shrine or Rift
   const handleResolveEvent = (rollResult?: number) => {
     if (!eventPrompt) return;
@@ -670,7 +689,8 @@ export default function App() {
         case 1: {
           sounds.playBonus();
           setGoalQuadrant(q);
-          setStatusMessage(`Ancient Map revealed! The Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}).`);
+          setShowMapHighlight(true);
+          setStatusMessage(`Ancient Map revealed! Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}) — candidate hexes highlighted!`);
           break;
         }
         case 2: {
@@ -688,8 +708,9 @@ export default function App() {
         case 4: {
           sounds.playBonus();
           setGoalQuadrant(q);
+          setShowMapHighlight(true);
           setEnergy((prev) => Math.min(prev + 2, MAX_ENERGY));
-          setStatusMessage(`Ancient Map & +2 Energy! Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}). Restored +2 Energy!`);
+          setStatusMessage(`Ancient Map & +2 Energy! Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}) — candidate hexes highlighted!`);
           break;
         }
         case 5: {
@@ -937,6 +958,8 @@ export default function App() {
         goalQuadrant={goalQuadrant}
         hasTelescope={hasTelescope}
         hasDiceModifier={hasDiceModifier}
+        showMapHighlight={showMapHighlight}
+        onToggleMapHighlight={handleToggleMapHighlight}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
         onOpenRules={() => setShowRules(true)}
@@ -951,6 +974,8 @@ export default function App() {
           pathPreview={pathPreview}
           knownTowers={knownTowers}
           isMoveOne={isMoveOne}
+          goalQuadrant={goalQuadrant}
+          showMapHighlight={showMapHighlight}
           deviationState={deviationState}
           onTileClick={handleTileClick}
           onPathTileClick={handlePathTileClick}

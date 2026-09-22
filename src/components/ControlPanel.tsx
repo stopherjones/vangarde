@@ -318,16 +318,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         )}
       </div>
-
-      {/* Game Status Ticker */}
-      <div className="px-2.5 py-1 bg-[#dfd3bc] border-t border-[#2b261f]/20 text-[11px] font-mono text-[#2b261f] truncate flex items-center justify-between">
-        <span className="truncate">{statusMessage}</span>
-        {isMoveOne && (
-          <span className="shrink-0 ml-2 px-1.5 py-0.5 bg-[#d97706] text-white rounded text-[9px] font-bold animate-pulse">
-            TAP ADJACENT HEX TO MOVE (-1⚡)
-          </span>
-        )}
-      </div>
     </footer>
   );
 };

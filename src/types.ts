@@ -59,6 +59,12 @@ export interface DeviationState {
 
 export type GameStatus = 'ready_to_roll' | 'planning_move' | 'moving_one' | 'moving' | 'event_prompt' | 'won' | 'lost';
 
+export interface GoalQuadrant {
+  code: 'NW' | 'NE' | 'SW' | 'SE';
+  name: string;
+  bounds?: string;
+}
+
 export interface EventPrompt {
   title: string;
   description: string;

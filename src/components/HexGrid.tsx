@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { HexCoord, HexTile, DirectionIndex, DeviationState } from '../types';
+import { HexCoord, HexTile, DirectionIndex, DeviationState, GoalQuadrant } from '../types';
 import {
   GRID_COLS,
   GRID_ROWS,
@@ -8,6 +8,7 @@ import {
   getAllNeighbors,
   DIRECTION_LABELS,
   tracePath,
+  isCoordInQuadrant,
 } from '../utils/hexMath';
 import { START_COORD } from '../utils/gameEngine';
 
@@ -17,6 +18,8 @@ interface HexGridProps {
   pathPreview: HexCoord[];
   knownTowers: HexCoord[];
   isMoveOne: boolean;
+  goalQuadrant?: GoalQuadrant | null;
+  showMapHighlight?: boolean;
   deviationState: DeviationState;
   onTileClick: (coord: HexCoord) => void;
   onPathTileClick?: (coord: HexCoord, stepIndex: number) => void;
@@ -25,14 +28,14 @@ interface HexGridProps {
   canExecuteMove?: boolean;
 }
 
-// Calibrated radius for 10x12 grid: board is 356.5px wide x 498px tall
+// Calibrated radius for 11x12 grid: board is 391px wide x 498px tall
 export const HEX_RADIUS = 23;
 
-// Precise viewBox boundaries encompassing all 10 columns (0-9) and 12 rows (0-11)
-// with comfortable margins for markers, halo rings, and banners
+// Precise viewBox boundaries encompassing all 11 columns (0-10) and 12 rows (0-11)
+// with comfortable symmetrical margins for markers, halo rings, and banners
 const VB_X = -18;
 const VB_Y = -24;
-const VB_WIDTH = 394;
+const VB_WIDTH = 427;
 const VB_HEIGHT = 546;
 
 export const HexGrid: React.FC<HexGridProps> = ({
@@ -41,6 +44,8 @@ export const HexGrid: React.FC<HexGridProps> = ({
   pathPreview,
   knownTowers,
   isMoveOne,
+  goalQuadrant,
+  showMapHighlight = true,
   deviationState,
   onTileClick,
   onPathTileClick,
@@ -120,6 +125,17 @@ export const HexGrid: React.FC<HexGridProps> = ({
             knownTowers.some((t) => t.col === tile.col && t.row === tile.row) && !tile.revealed;
           const isMoveOneTarget = isMoveOne && isNeighborOfPlayer;
 
+          // Ancient Map Sector Candidate: tiles in map quadrant that could contain the Golden Beacon
+          const isInMapQuadrant = goalQuadrant
+            ? isCoordInQuadrant({ col: tile.col, row: tile.row }, goalQuadrant.code)
+            : false;
+          const isPossibleGoalCandidate = Boolean(
+            showMapHighlight &&
+            goalQuadrant &&
+            isInMapQuadrant &&
+            (!tile.revealed || tile.type === 'goal')
+          );
+
           // Check if this hex is along the active movement line
           const pathStepIndex = pathTileMap.get(`${tile.col},${tile.row}`);
           const isPathHex = pathStepIndex !== undefined;
@@ -188,6 +204,12 @@ export const HexGrid: React.FC<HexGridProps> = ({
           } else if (isPlayerHex) {
             strokeColor = '#15803d';
             strokeWidth = 2.4;
+          } else if (isPossibleGoalCandidate) {
+            strokeColor = '#d97706';
+            strokeWidth = 1.8;
+            if (!tile.revealed) {
+              fillColor = '#faf0d7';
+            }
           }
 
           return (
@@ -228,6 +250,16 @@ export const HexGrid: React.FC<HexGridProps> = ({
                 <polygon
                   points={points}
                   fill="url(#paper-stipple)"
+                  pointerEvents="none"
+                />
+              )}
+
+              {/* Ancient Map Candidate warm golden shimmer overlay */}
+              {isPossibleGoalCandidate && !tile.revealed && (
+                <polygon
+                  points={points}
+                  fill="#f59e0b"
+                  opacity="0.14"
                   pointerEvents="none"
                 />
               )}
@@ -456,16 +488,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
                     </g>
                   )}
 
-                  {tile.type === 'blank' && !isPathHex && (
-                    <text
-                      x={x}
-                      y={y + 3}
-                      textAnchor="middle"
-                      className="text-[7.5px] font-mono fill-[#857a69]"
-                    >
-                      {tile.col},{tile.row}
-                    </text>
-                  )}
+                  {/* Blank tiles have clean wilderness texture without raw coordinates */}
                 </g>
               ) : (
                 <g pointerEvents="none">
@@ -500,18 +523,12 @@ export const HexGrid: React.FC<HexGridProps> = ({
                         STEP -1⚡
                       </text>
                     </g>
-                  ) : (
-                    !isPathHex && (
-                      <text
-                        x={x}
-                        y={y + 3}
-                        textAnchor="middle"
-                        className="text-[7px] font-mono fill-[#a3947f]"
-                      >
-                        {tile.col},{tile.row}
-                      </text>
-                    )
-                  )}
+                  ) : isPossibleGoalCandidate && !tile.revealed ? (
+                    <g transform={`translate(${x}, ${y})`}>
+                      <circle r="3.5" fill="none" stroke="#d97706" strokeWidth="0.9" strokeDasharray="1.5 1.5" />
+                      <circle r="1.3" fill="#d97706" />
+                    </g>
+                  ) : null}
                 </g>
               )}
             </g>

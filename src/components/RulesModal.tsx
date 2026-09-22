@@ -34,7 +34,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               <span>Objective: Find the Lost Beacon</span>
             </div>
             <p>
-              Navigate the 10x12 uncharted wilderness from your base camp at the bottom. Reach the hidden
+              Navigate the 11x12 uncharted wilderness from your base camp at the bottom. Reach the hidden
               Golden Beacon before your Energy countdown runs out!
             </p>
           </div>
@@ -87,7 +87,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 <strong>Supply Caches:</strong> Abundant food & water caches (+1, +2, or +3 Energy) scattered through the wilderness.
               </div>
               <div className="p-1.5 bg-[#dbc5ea]/40 rounded border border-[#2b261f]/20">
-                <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Ancient Map (Goal Quadrant), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Map & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
+                <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Ancient Map (highlights all possible hexes in the goal quadrant; toggle on/off via header 🗺️ icon), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Map & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
               </div>
               <div className="p-1.5 bg-[#d9d0c1] rounded border border-[#2b261f]/20">
                 <strong>Clue Cairns:</strong> One in every column! Whispers the compass bearing towards the Golden Beacon.

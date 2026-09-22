@@ -12,6 +12,8 @@ interface HeaderProps {
   goalQuadrant?: { code: string; name: string; bounds?: string } | null;
   hasTelescope?: boolean;
   hasDiceModifier?: boolean;
+  showMapHighlight?: boolean;
+  onToggleMapHighlight?: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onOpenRules: () => void;
@@ -29,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   goalQuadrant,
   hasTelescope,
   hasDiceModifier,
+  showMapHighlight = true,
+  onToggleMapHighlight,
   soundEnabled,
   onToggleSound,
   onOpenRules,
@@ -60,12 +64,21 @@ export const Header: React.FC<HeaderProps> = ({
           {(goalQuadrant || hasTelescope || hasDiceModifier) && (
             <div className="flex items-center gap-1 ml-1 text-[10px] normal-case">
               {goalQuadrant && (
-                <span
-                  className="px-1.5 py-0.2 bg-[#fef3c7] text-[#92400e] border border-[#b45309]/50 rounded font-black font-mono"
-                  title={`Map: Beacon located in ${goalQuadrant.name} (${goalQuadrant.bounds || ''})`}
+                <button
+                  type="button"
+                  onClick={onToggleMapHighlight}
+                  className={`px-1.5 py-0.5 rounded font-black font-mono cursor-pointer transition-all flex items-center gap-1 active:scale-95 ${
+                    showMapHighlight
+                      ? 'bg-[#d97706] text-white border border-[#92400e] shadow-xs ring-1 ring-[#b45309]'
+                      : 'bg-[#fef3c7] text-[#92400e] border border-[#b45309]/50 hover:bg-[#fde68a] opacity-80'
+                  }`}
+                  title={`Ancient Map (${goalQuadrant.name}): Tap to ${showMapHighlight ? 'hide' : 'highlight'} candidate hexes`}
                 >
-                  🗺️ {goalQuadrant.code}
-                </span>
+                  <span>🗺️ {goalQuadrant.code}</span>
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider opacity-90">
+                    {showMapHighlight ? 'ON' : 'OFF'}
+                  </span>
+                </button>
               )}
               {hasTelescope && (
                 <span
