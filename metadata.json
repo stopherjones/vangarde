@@ -1,0 +1,7 @@
+{
+  "name": "Hex Crawl: Paper & Dice Exploration",
+  "description": "A mobile-first retro hex crawl exploration game with 2D6 dice movement, fog of war, and tactical deviation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

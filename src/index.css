@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'JetBrains Mono', 'Courier Prime', monospace;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
