@@ -62,10 +62,14 @@ export const HexGrid: React.FC<HexGridProps> = ({
   const playerNeighbors = getAllNeighbors(playerCoord);
   const playerNeighborKeys = new Set(playerNeighbors.map((n) => `${n.col},${n.row}`));
 
-  // Fast lookup for path preview tiles and their step index (0-based)
+  // Fast lookup for path preview tiles and their FIRST step index (0-based)
+  // We only keep the earliest step so bouncing/looping paths deviate from the first encounter
   const pathTileMap = new Map<string, number>();
   pathPreview.forEach((c, idx) => {
-    pathTileMap.set(`${c.col},${c.row}`, idx);
+    const key = `${c.col},${c.row}`;
+    if (!pathTileMap.has(key)) {
+      pathTileMap.set(key, idx);
+    }
   });
 
   // Calculate deviation branch preview options if deviation pivot is active
@@ -74,10 +78,10 @@ export const HexGrid: React.FC<HexGridProps> = ({
     deviationState.type === 'split_path' &&
     deviationState.pivotIndex !== null;
 
-  // Pivot hex position
+  // Pivot hex position (-1 indicates deviating from player's current hex)
   const pivotCoord =
-    isDeviationPivotActive && deviationState.pivotIndex !== null && pathPreview[deviationState.pivotIndex]
-      ? pathPreview[deviationState.pivotIndex]
+    isDeviationPivotActive && deviationState.pivotIndex !== null
+      ? (deviationState.pivotIndex === -1 ? playerCoord : pathPreview[deviationState.pivotIndex])
       : null;
   const pivotPixel = pivotCoord ? hexToPixel(pivotCoord.col, pivotCoord.row, HEX_RADIUS) : null;
 
@@ -142,12 +146,13 @@ export const HexGrid: React.FC<HexGridProps> = ({
           const isPivotHex =
             isDeviationPivotActive &&
             deviationState.pivotIndex !== null &&
-            pathStepIndex === deviationState.pivotIndex;
+            (deviationState.pivotIndex === -1 ? isPlayerHex : pathStepIndex === deviationState.pivotIndex);
           const isAfterPivot =
             isDeviationPivotActive &&
             deviationState.pivotIndex !== null &&
-            pathStepIndex !== undefined &&
-            pathStepIndex > deviationState.pivotIndex;
+            (deviationState.pivotIndex === -1
+              ? isPathHex
+              : pathStepIndex !== undefined && pathStepIndex > deviationState.pivotIndex);
 
           // Color & Styling determination
           let fillColor = '#e7ddc9'; // Default fog of war parchment
@@ -222,6 +227,12 @@ export const HexGrid: React.FC<HexGridProps> = ({
                 // If Move 1 is active and player clicks an adjacent hex, step directly there!
                 if (isMoveOneTarget) {
                   onTileClick({ col: tile.col, row: tile.row });
+                  return;
+                }
+
+                // If clicking current player hex while dice move is active, deviate directly from current location!
+                if (isPlayerHex && pathPreview.length > 0 && onPathTileClick) {
+                  onPathTileClick({ col: tile.col, row: tile.row }, -1);
                   return;
                 }
 
@@ -304,7 +315,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
 
               {/* Pivot Indicator icon if this is the chosen deviation turn point */}
               {isPivotHex && (
-                <g pointerEvents="none" transform={`translate(${x}, ${y + 6})`}>
+                <g pointerEvents="none" transform={`translate(${x}, ${y + (isPlayerHex ? 12 : 6)})`}>
                   <rect x="-16" y="-7" width="32" height="13" rx="3" fill="#d97706" stroke="#ffffff" strokeWidth="1" />
                   <text textAnchor="middle" dy="2.5" className="text-[7.5px] font-mono font-black fill-white">
                     PIVOT

@@ -321,7 +321,8 @@ export default function App() {
     if (!diceState.rolled) return;
 
     const totalDistance = Math.min(diceState.assignedDistance, energy);
-    const step1Dist = stepIndex + 1; // 1-based distance traveled before deviation
+    // stepIndex === -1 means deviate right from current location (0 steps in original direction)
+    const step1Dist = stepIndex === -1 ? 0 : stepIndex + 1; // 1-based distance traveled before deviation
     const remainingDistance = totalDistance - step1Dist;
 
     if (remainingDistance <= 0) {
@@ -349,9 +350,15 @@ export default function App() {
     });
 
     sounds.playClick();
-    setStatusMessage(
-      `Deviation set at hex ${step1Dist}! You have ${remainingDistance} space${remainingDistance !== 1 ? 's' : ''} left. Tap any branch arrow on the map to choose your new direction!`
-    );
+    if (stepIndex === -1) {
+      setStatusMessage(
+        `Deviation set from current location! You have all ${remainingDistance} spaces to turn in any direction. Tap any branch arrow on the map to choose your direction!`
+      );
+    } else {
+      setStatusMessage(
+        `Deviation set at hex ${step1Dist}! You have ${remainingDistance} space${remainingDistance !== 1 ? 's' : ''} left. Tap any branch arrow on the map to choose your new direction!`
+      );
+    }
   };
 
   // Select which direction to turn from the deviation pivot point
