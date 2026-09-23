@@ -153,10 +153,10 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
             title={
               goalFound
-                ? 'Goal Found!'
+                ? 'Secret Tunnel Entrance Found!'
                 : goalClue
-                ? `Goal lies: ${goalClue}`
-                : 'Goal Hidden'
+                ? `Secret Tunnel lies: ${goalClue}`
+                : 'Secret Tunnel Hidden'
             }
           >
             {goalFound

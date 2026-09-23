@@ -36,15 +36,15 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           }`}
         >
           {won ? <Trophy className="w-5 h-5 text-yellow-300" /> : <Skull className="w-5 h-5" />}
-          <span>{won ? 'BEACON DISCOVERED!' : 'EXPEDITION EXHAUSTED'}</span>
+          <span>{won ? 'SECRET TUNNEL FOUND!' : 'EXPEDITION EXHAUSTED'}</span>
         </div>
 
         {/* Details */}
         <div className="p-5 space-y-4 font-mono text-xs text-[#2b261f]">
           <p className="text-xs leading-relaxed">
             {won
-              ? 'Splendid cartography! You reached the Lost Golden Beacon and anchored the wilderness map before your supplies ran dry.'
-              : 'Your energy was completely depleted before locating the Lost Beacon. The fog of war claims this voyage.'}
+              ? 'Splendid cartography! You reached the Secret Tunnel Entrance and secured your escape before your supplies ran dry.'
+              : 'Your energy was completely depleted before locating the Secret Tunnel Entrance. The fog of war claims this voyage.'}
           </p>
 
           {/* Expedition Scorecard */}
@@ -98,7 +98,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                 className="w-full py-2 px-3 bg-[#e2d5bd] hover:bg-[#d8c8ab] text-[#2b261f] font-mono font-bold text-xs uppercase rounded-lg border-2 border-[#2b261f] flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                <span>Review Map & Beacon</span>
+                <span>Review Map & Secret Tunnel</span>
               </button>
             )}
           </div>

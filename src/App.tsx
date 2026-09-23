@@ -151,7 +151,7 @@ export default function App() {
 
       sounds.playHazard();
       setStatusMessage(
-        `Expedition exhausted! The Lost Golden Beacon has been revealed at (${mapData.goalCoord.col}, ${mapData.goalCoord.row}).`
+        `Expedition exhausted! The Secret Tunnel Entrance has been revealed at (${mapData.goalCoord.col}, ${mapData.goalCoord.row}).`
       );
 
       if (gameOverTimeoutRef.current) {
@@ -607,7 +607,7 @@ export default function App() {
       sounds.playVictory();
       setIsWon(true);
       isPendingExhaustionRef.current = false;
-      setStatusMessage('VICTORY! You have reached the Lost Golden Beacon!');
+      setStatusMessage('VICTORY! You have reached the Secret Tunnel Entrance!');
       return;
     }
 
@@ -736,11 +736,11 @@ export default function App() {
       }
       setGoalClue(destTile.cairnBearing);
       const bogMsg = bogPenalty > 0 ? ` (Slogged through bog: -${bogPenalty} ⚡)` : '';
-      setStatusMessage(`Ancient Cairn reached! Inscription: "The Lost Beacon lies to the ${destTile.cairnBearing}."${bogMsg} Possible goal spaces updated!`);
+      setStatusMessage(`Ancient Cairn reached! Inscription: "The Secret Tunnel Entrance lies to the ${destTile.cairnBearing}."${bogMsg} Possible goal spaces updated!`);
       setEventPrompt({
         title: 'Ancient Stone Cairn Reached',
         category: 'Discovery',
-        description: `You examine the mysterious stacked stones and decipher the ancient runic carvings: "The Lost Golden Beacon lies to the ${destTile.cairnBearing}."\n\nPossible beacon spaces have been highlighted and narrowed down across the map!`,
+        description: `You examine the mysterious stacked stones and decipher the ancient runic carvings: "The Secret Tunnel Entrance lies to the ${destTile.cairnBearing}."\n\nPossible secret tunnel spaces have been highlighted and narrowed down across the map!`,
         type: 'clue',
         coord: destination,
         statBadge: `Compass Bearing: ${destTile.cairnBearing}`,
@@ -766,7 +766,7 @@ export default function App() {
 
     // 9. If one or more bogs were traversed along the path to an ordinary wilderness hex
     if (bogsTraversedCount > 0) {
-      const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Goal lies to the ${activatedCairnClue}!` : '';
+      const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Secret Tunnel lies to the ${activatedCairnClue}!` : '';
       setStatusMessage(
         `Slogged through peat bog (-${bogPenalty} ⚡)! Energy: ${remainingEnergy}/${MAX_ENERGY}.${cairnMsg}`
       );
@@ -785,7 +785,7 @@ export default function App() {
     }
 
     // Standard move message (no bogs traversed, destination is blank wilderness)
-    const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Goal lies to the ${activatedCairnClue}!` : '';
+    const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Secret Tunnel lies to the ${activatedCairnClue}!` : '';
     setStatusMessage(
       `Moved to (${destination.col}, ${destination.row}). Energy: ${remainingEnergy}/${MAX_ENERGY}.${cairnMsg} Roll for your next move.`
     );
@@ -933,7 +933,7 @@ export default function App() {
           title: 'Charted Watchtower',
           category: 'Tile Inspection',
           description:
-            'A distant watchtower mapped during a beacon survey. Shrouded in fog of war. Move to this hex to scale its high ramparts and unveil all 6 adjacent hexes.',
+            'A distant watchtower mapped during a wilderness survey. Shrouded in fog of war. Move to this hex to scale its high ramparts and unveil all 6 adjacent hexes.',
           type: 'tower',
           coord,
           statBadge: 'Known Watchtower (Unvisited)',
@@ -1024,8 +1024,8 @@ export default function App() {
           title: 'Ancient Clue Cairn',
           category: 'Tile Inspection',
           description: tile.cairnBearing
-            ? `Stacked river stones etched with wind runes pointing to the Golden Beacon: "The Beacon lies to the ${tile.cairnBearing}."`
-            : 'Stacked stone cairn. Activates when passed over or landed on, whispering the rough compass bearing to the Lost Golden Beacon.',
+            ? `Stacked river stones etched with wind runes pointing to the Secret Tunnel: "The Secret Tunnel lies to the ${tile.cairnBearing}."`
+            : 'Stacked stone cairn. Activates when passed over or landed on, whispering the rough compass bearing to the Secret Tunnel Entrance.',
           type: 'clue',
           coord,
           statBadge: tile.cairnBearing ? `Points: ${tile.cairnBearing}` : 'Activates when visited or traversed',
@@ -1046,13 +1046,13 @@ export default function App() {
 
       case 'goal':
         setEventPrompt({
-          title: 'The Lost Golden Beacon',
+          title: 'Secret Tunnel Entrance',
           category: 'Tile Inspection',
           description:
-            'The mythical glowing monolith shining with ancient light! Land on this hex to complete the expedition and claim victory!',
+            'A concealed subterranean archway leading into the ancient tunnel network. Stepping onto this hex completes your expedition with a victorious escape!',
           type: 'info',
           coord,
-          statBadge: 'Primary Objective (Goal)',
+          statBadge: 'Primary Objective: Secret Tunnel Entrance',
         });
         break;
 
@@ -1165,7 +1165,7 @@ export default function App() {
       {(isWon || isLost) && reviewingMap && (
         <div className="fixed top-14 right-4 z-40 flex items-center gap-2 bg-[#f4edd9]/95 backdrop-blur-xs border-2 border-[#2b261f] py-1.5 px-3 rounded-lg shadow-xl font-mono text-xs select-none">
           <span className="font-bold text-[#2b261f]">
-            {isWon ? '🏆 Beacon Reached!' : '📍 Beacon Revealed'}
+            {isWon ? '🏆 Secret Tunnel Reached!' : '📍 Secret Tunnel Revealed'}
           </span>
           <button
             onClick={() => setReviewingMap(false)}

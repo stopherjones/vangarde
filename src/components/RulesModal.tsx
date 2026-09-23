@@ -31,11 +31,11 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           <div className="bg-[#ede4d3] p-2.5 rounded-lg border border-[#2b261f]/30">
             <div className="font-black uppercase text-[#2d6a4f] mb-1 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Objective: Find the Lost Beacon</span>
+              <span>Objective: Find the Secret Tunnel Entrance</span>
             </div>
             <p>
               Navigate the 11x12 uncharted wilderness from your expedition camp in the center of the realm. Reach the hidden
-              Golden Beacon (located more than 2 hexes away from camp) before your Energy countdown runs out!
+              Secret Tunnel Entrance (located more than 2 hexes away from camp) before your Energy countdown runs out!
             </p>
           </div>
 
@@ -90,12 +90,12 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Free Move 1 Hex (step into any adjacent hex for 0 ⚡), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Free Move 1 Hex & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
               </div>
               <div className="p-1.5 bg-[#d9d0c1] rounded border border-[#2b261f]/20 sm:col-span-2">
-                <strong>Clue Cairns (1 per column):</strong> When revealed, each cairn activates and signposts the bearing to the Golden Beacon based on coordinate proportions:
+                <strong>Clue Cairns (1 per column):</strong> When revealed, each cairn activates and signposts the bearing to the Secret Tunnel Entrance based on coordinate proportions:
                 <div className="mt-1 pl-2 border-l-2 border-[#2b261f]/30 space-y-0.5 text-[10.5px]">
-                  <div>• <strong>North / South (↑ N / ↓ S):</strong> Beacon is predominantly north or south. All tiles north or south of the cairn are highlighted.</div>
-                  <div>• <strong>East / West (→ E / ← W):</strong> Beacon is predominantly east or west. All tiles east or west of the cairn are highlighted.</div>
+                  <div>• <strong>North / South (↑ N / ↓ S):</strong> Secret Tunnel is predominantly north or south. All tiles north or south of the cairn are highlighted.</div>
+                  <div>• <strong>East / West (→ E / ← W):</strong> Secret Tunnel is predominantly east or west. All tiles east or west of the cairn are highlighted.</div>
                   <div>• <strong>Diagonals (↗ NE, ↖ NW, ↘ SE, ↙ SW):</strong> Roughly as many spaces north/south as east/west. That entire quadrant is highlighted.</div>
-                  <div>• <strong>Triangulation:</strong> As you discover multiple cairns, their overlapping regions intersect to progressively whittle down the beacon's exact location!</div>
+                  <div>• <strong>Triangulation:</strong> As you discover multiple cairns, their overlapping regions intersect to progressively whittle down the secret tunnel's exact location!</div>
                 </div>
               </div>
             </div>

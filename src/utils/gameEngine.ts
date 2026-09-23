@@ -105,7 +105,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
       flavorText = 'Base Expedition Camp';
     } else if (c.col === goalCoord.col && c.row === goalCoord.row) {
       type = 'goal';
-      flavorText = 'The Lost Golden Beacon!';
+      flavorText = 'The Secret Tunnel Entrance!';
     } else if (towerCoords.some((t) => t.col === c.col && t.row === c.row)) {
       type = 'tower';
       flavorText = 'Ancient Watchtower: Reveals adjacent lands, 6 directional sightlines & all towers';
@@ -123,7 +123,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
       flavorText = 'Abundant Cache (+3 Energy)';
     } else if (shrineCoords.some((x) => x.col === c.col && x.row === c.row)) {
       type = 'luck_shrine';
-      flavorText = 'Fortune Shrine: Roll D6 for Map, Telescope, or Energy';
+      flavorText = 'Fortune Shrine: Roll D6 for Free Move, Telescope, or Energy';
     } else if (bogCoords.some((x) => x.col === c.col && x.row === c.row)) {
       type = 'bog_hazard';
       value = -1;
@@ -135,7 +135,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
     } else if (clueCoords.some((x) => x.col === c.col && x.row === c.row)) {
       type = 'clue_cairn';
       cairnBearing = getCompassDirection(c, goalCoord);
-      flavorText = `Ancient Cairn: Whispers that the Golden Beacon lies to the ${cairnBearing}`;
+      flavorText = `Ancient Cairn: Whispers that the Secret Tunnel Entrance lies to the ${cairnBearing}`;
     }
 
     const isStart = c.col === START_COORD.col && c.row === START_COORD.row;

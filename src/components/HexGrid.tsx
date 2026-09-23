@@ -371,18 +371,26 @@ export const HexGrid: React.FC<HexGridProps> = ({
                     <g transform={`translate(${x}, ${y})`}>
                       <circle r="16" fill="#f59e0b" opacity="0.35" className="animate-pulse" />
                       <circle r="13" fill="#ffd166" stroke="#2b261f" strokeWidth="1.8" />
-                      <polygon
-                        points="0,-7 2.2,-2 7,0 2.2,2 0,7 -2.2,2 -7,0 -2.2,-2"
-                        fill="#d97706"
-                        stroke="#2b261f"
-                        strokeWidth="1"
+                      {/* Arched Secret Tunnel Entrance */}
+                      <path
+                        d="M -6,5 L -6,-1 A 6,6 0 0,1 6,-1 L 6,5 Z"
+                        fill="#2b261f"
+                        stroke="#78350f"
+                        strokeWidth="1.2"
                       />
+                      <path
+                        d="M -3.5,5 L -3.5,0 A 3.5,3.5 0 0,1 3.5,0 L 3.5,5 Z"
+                        fill="#12100e"
+                      />
+                      {/* Stone step & mysterious lantern glow */}
+                      <line x1="-3" y1="3" x2="3" y2="3" stroke="#b45309" strokeWidth="0.8" />
+                      <circle cx="0" cy="-3.5" r="1.2" fill="#f59e0b" />
                       <text
                         y="16"
                         textAnchor="middle"
-                        className="text-[8.5px] font-mono font-black fill-[#78350f]"
+                        className="text-[7.5px] font-mono font-black fill-[#78350f]"
                       >
-                        BEACON
+                        TUNNEL
                       </text>
                     </g>
                   )}
