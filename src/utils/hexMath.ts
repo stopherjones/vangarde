@@ -1,4 +1,4 @@
-import { DirectionIndex, HexCoord, HexTile, GoalQuadrant } from '../types';
+import { DirectionIndex, HexCoord, HexTile } from '../types';
 
 export const GRID_COLS = 11;
 export const GRID_ROWS = 12;
@@ -114,40 +114,6 @@ export function getTowerRevealedCoords(
   }
 
   return revealedCoords;
-}
-
-// Determine which 4-quadrant sector a hex coordinate is located in
-export function getQuadrant(coord: HexCoord): {
-  code: 'NW' | 'NE' | 'SW' | 'SE';
-  name: string;
-  bounds: string;
-} {
-  const isNorth = coord.row < 6;
-  const isWest = coord.col <= 5;
-  if (isNorth && isWest) {
-    return { code: 'NW', name: 'Northwest', bounds: 'Cols 0–5, Rows 0–5' };
-  } else if (isNorth && !isWest) {
-    return { code: 'NE', name: 'Northeast', bounds: 'Cols 5–10, Rows 0–5' };
-  } else if (!isNorth && isWest) {
-    return { code: 'SW', name: 'Southwest', bounds: 'Cols 0–5, Rows 6–11' };
-  } else {
-    return { code: 'SE', name: 'Southeast', bounds: 'Cols 5–10, Rows 6–11' };
-  }
-}
-
-// Check if a coordinate falls inside a specific quadrant
-export function isCoordInQuadrant(
-  coord: HexCoord,
-  code: 'NW' | 'NE' | 'SW' | 'SE'
-): boolean {
-  const isNorth = coord.row < 6;
-  const isWest = coord.col <= 5;
-  const isEast = coord.col >= 5;
-  if (code === 'NW') return isNorth && isWest;
-  if (code === 'NE') return isNorth && isEast;
-  if (code === 'SW') return !isNorth && isWest;
-  if (code === 'SE') return !isNorth && isEast;
-  return false;
 }
 
 // Calculate next hex step with edge bouncing reflection so players never get stuck at map boundaries
@@ -441,11 +407,10 @@ export function getCairnShortBearing(bearing?: string): string {
   }
 }
 
-// Calculate all possible goal coordinates based on start distance, revealed cairns, and optional quadrant
+// Calculate all possible goal coordinates based on start distance and revealed cairns
 export function getPossibleGoalCoords(
   tiles: Map<string, HexTile>,
-  startCoord: HexCoord,
-  goalQuadrant?: GoalQuadrant | null
+  startCoord: HexCoord
 ): HexCoord[] {
   // If the goal itself is already revealed, remove all candidate highlights
   for (const tile of tiles.values()) {
@@ -465,8 +430,8 @@ export function getPossibleGoalCoords(
     }
   }
 
-  // If no cairns are revealed and no quadrant map has been acquired, do not highlight
-  if (revealedCairns.length === 0 && !goalQuadrant) {
+  // If no cairns are revealed, do not highlight
+  if (revealedCairns.length === 0) {
     return [];
   }
 
@@ -488,12 +453,7 @@ export function getPossibleGoalCoords(
         continue;
       }
 
-      // Rule 3: If Ancient Map quadrant is known, must be within that quadrant
-      if (goalQuadrant && !isCoordInQuadrant(coord, goalQuadrant.code)) {
-        continue;
-      }
-
-      // Rule 4: Must be consistent with every revealed cairn's broadened signpost
+      // Rule 3: Must be consistent with every revealed cairn's broadened signpost
       const matchesAllCairns = revealedCairns.every((cairn) => {
         return isTileConsistentWithCairn(cairn.coord, cairn.bearing, coord);
       });

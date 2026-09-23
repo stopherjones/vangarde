@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   DirectionIndex,
   HexCoord,
@@ -43,6 +43,10 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isWon, setIsWon] = useState<boolean>(false);
   const [isLost, setIsLost] = useState<boolean>(false);
+  const [reviewingMap, setReviewingMap] = useState<boolean>(false);
+
+  const gameOverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isPendingExhaustionRef = useRef<boolean>(false);
 
   // 2D6 Dice State
   const [diceState, setDiceState] = useState<DiceState>({
@@ -99,7 +103,7 @@ export default function App() {
   const goalTile = mapData.tiles.get(`${mapData.goalCoord.col},${mapData.goalCoord.row}`);
   const goalFound = !!goalTile?.revealed;
 
-  // Dynamic candidate goal coordinates calculated from revealed Cairns and Ancient Map
+  // Dynamic candidate goal coordinates calculated from revealed Cairns
   const candidateGoalCoords = useMemo(() => {
     if (goalFound) {
       return [];
@@ -120,8 +124,55 @@ export default function App() {
   const [showRules, setShowRules] = useState<boolean>(false);
   const [eventPrompt, setEventPrompt] = useState<EventPrompt | null>(null);
 
+  // Cleanup any pending game-over timer on unmount
+  useEffect(() => {
+    return () => {
+      if (gameOverTimeoutRef.current) {
+        clearTimeout(gameOverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Trigger exhaustion sequence: reveals the goal hex on the map immediately, then displays popup after delay
+  const triggerExhaustionSequence = useCallback(
+    (tilesMap?: Map<string, HexTile>, delayMs = 1800) => {
+      if (isWon) return;
+
+      // Reveal the goal hex on the map immediately
+      setMapData((prev) => {
+        const nextTiles = tilesMap ? new Map(tilesMap) : new Map(prev.tiles);
+        const goalKey = `${prev.goalCoord.col},${prev.goalCoord.row}`;
+        const gTile = nextTiles.get(goalKey);
+        if (gTile) {
+          gTile.revealed = true;
+        }
+        return { ...prev, tiles: nextTiles };
+      });
+
+      sounds.playHazard();
+      setStatusMessage(
+        `Expedition exhausted! The Lost Golden Beacon has been revealed at (${mapData.goalCoord.col}, ${mapData.goalCoord.row}).`
+      );
+
+      if (gameOverTimeoutRef.current) {
+        clearTimeout(gameOverTimeoutRef.current);
+      }
+      gameOverTimeoutRef.current = setTimeout(() => {
+        setIsLost(true);
+      }, delayMs);
+    },
+    [isWon, mapData.goalCoord.col, mapData.goalCoord.row]
+  );
+
   // Reset / New Game
   const handleNewGame = useCallback(() => {
+    if (gameOverTimeoutRef.current) {
+      clearTimeout(gameOverTimeoutRef.current);
+      gameOverTimeoutRef.current = null;
+    }
+    isPendingExhaustionRef.current = false;
+    setReviewingMap(false);
+
     const newMap = generateMap();
     setMapData(newMap);
     setPlayerCoord(START_COORD);
@@ -471,19 +522,29 @@ export default function App() {
       setFreeMoves((prev) => Math.max(0, prev - 1));
     }
 
-    // Spend energy
-    const remainingEnergy = Math.max(0, energy - energyCost);
-    setEnergy(remainingEnergy);
-
     // Update map tiles along path and at destination
     const updatedTiles = new Map(mapData.tiles);
 
-    // Reveal intermediate tiles passed through, and activate cairns along the path
+    // Reveal intermediate and destination tiles passed through, activate cairns, and apply bog hazard penalties
     let activatedCairnClue: string | null = null;
+    let bogPenalty = 0;
+    let bogsTraversedCount = 0;
+    const bogCoordsTraversed: HexCoord[] = [];
+
     for (const step of steps) {
       const t = updatedTiles.get(`${step.col},${step.row}`);
       if (t) {
         t.revealed = true;
+
+        // Peat Bogs apply their penalty when passed over (without having to land on them)
+        if (t.type === 'bog_hazard' && !t.activated) {
+          const penalty = Math.abs(t.value || 1);
+          bogPenalty += penalty;
+          bogsTraversedCount++;
+          bogCoordsTraversed.push(step);
+          t.activated = true;
+        }
+
         // Hexes reveal, and cairns activate when revealed or passed over
         if (t.type === 'clue_cairn') {
           t.activated = true;
@@ -495,6 +556,26 @@ export default function App() {
           sounds.playBonus();
         }
       }
+    }
+
+    if (bogPenalty > 0) {
+      sounds.playHazard();
+    }
+
+    // Spend energy: steps distance cost + any bog traversal penalty
+    const remainingEnergy = Math.max(0, energy - energyCost - bogPenalty);
+    setEnergy(remainingEnergy);
+
+    // If exhausted, reveal the goal hex on the map immediately!
+    if (remainingEnergy <= 0) {
+      const goalKey = `${mapData.goalCoord.col},${mapData.goalCoord.row}`;
+      const gTile = updatedTiles.get(goalKey);
+      if (gTile) {
+        gTile.revealed = true;
+      }
+      isPendingExhaustionRef.current = true;
+    } else {
+      isPendingExhaustionRef.current = false;
     }
 
     // Land on destination
@@ -525,6 +606,7 @@ export default function App() {
     if (destTile.type === 'goal') {
       sounds.playVictory();
       setIsWon(true);
+      isPendingExhaustionRef.current = false;
       setStatusMessage('VICTORY! You have reached the Lost Golden Beacon!');
       return;
     }
@@ -551,7 +633,8 @@ export default function App() {
       const scopeMsg = hasTelescope
         ? 'Telescope Active: Revealed all 6 rays across the map!'
         : 'Adjacent lands & 6 directional sights revealed!';
-      setStatusMessage(`Tower beacon activated! ${scopeMsg} All towers mapped!`);
+      const bogMsg = bogPenalty > 0 ? ` (Slogged through bog: -${bogPenalty} ⚡)` : '';
+      setStatusMessage(`Tower beacon activated! ${scopeMsg}${bogMsg} All towers mapped!`);
       setEventPrompt({
         title: 'Ancient Watchtower Reached!',
         category: 'Landmark',
@@ -571,9 +654,14 @@ export default function App() {
     if (destTile.type === 'energy_cache') {
       sounds.playBonus();
       const bonus = destTile.value || 1;
-      setEnergy((prev) => Math.min(prev + bonus, MAX_ENERGY));
+      const newE = Math.min(remainingEnergy + bonus, MAX_ENERGY);
+      setEnergy(newE);
       destTile.type = 'blank';
-      setStatusMessage(`Discovered fresh spring rations! Restored +${bonus} Energy.`);
+      if (newE > 0) {
+        isPendingExhaustionRef.current = false;
+      }
+      const bogMsg = bogPenalty > 0 ? ` (Slogged through bog: -${bogPenalty} ⚡)` : '';
+      setStatusMessage(`Discovered fresh spring rations! Restored +${bonus} Energy.${bogMsg}`);
       setEventPrompt({
         title: 'Energy Cache Uncovered!',
         category: 'Discovery',
@@ -605,14 +693,12 @@ export default function App() {
       return;
     }
 
-    // 5. Peat Bog Hazard Reached
-    if (destTile.type === 'bog_hazard') {
-      sounds.playHazard();
-      const penalty = Math.abs(destTile.value || 1);
-      const newE = Math.max(0, remainingEnergy - penalty);
-      setEnergy(newE);
-      destTile.type = 'blank';
-      setStatusMessage(`Trapped in muddy peat bog! Lost -${penalty} Energy.`);
+    // 5. Peat Bog Hazard Reached (destination was a bog)
+    const destinationWasBog = bogCoordsTraversed.some(
+      (c) => c.col === destination.col && c.row === destination.row
+    );
+    if (destinationWasBog) {
+      setStatusMessage(`Trapped in muddy peat bog! Lost -${bogPenalty} Energy.`);
       setEventPrompt({
         title: 'Peat Bog Hazard!',
         category: 'Hazard',
@@ -620,11 +706,8 @@ export default function App() {
           'Treacherous sludge and sucking mud engulf your boots! Slogging through the treacherous bog consumes precious reserves.',
         type: 'bog',
         coord: destination,
-        statBadge: `-${penalty} Energy Sapped!`,
+        statBadge: `-${bogPenalty} Energy Sapped!`,
       });
-      if (newE <= 0) {
-        setIsLost(true);
-      }
       return;
     }
 
@@ -652,7 +735,8 @@ export default function App() {
         destTile.cairnBearing = getCompassDirection(destination, mapData.goalCoord);
       }
       setGoalClue(destTile.cairnBearing);
-      setStatusMessage(`Ancient Cairn reached! Inscription: "The Lost Beacon lies to the ${destTile.cairnBearing}." Possible goal spaces updated!`);
+      const bogMsg = bogPenalty > 0 ? ` (Slogged through bog: -${bogPenalty} ⚡)` : '';
+      setStatusMessage(`Ancient Cairn reached! Inscription: "The Lost Beacon lies to the ${destTile.cairnBearing}."${bogMsg} Possible goal spaces updated!`);
       setEventPrompt({
         title: 'Ancient Stone Cairn Reached',
         category: 'Discovery',
@@ -666,7 +750,8 @@ export default function App() {
 
     // 8. Base Camp Reached
     if (destTile.type === 'start') {
-      setStatusMessage('Expedition Base Camp. You are back at the start post.');
+      const bogMsg = bogPenalty > 0 ? ` (Slogged through bog: -${bogPenalty} ⚡)` : '';
+      setStatusMessage(`Expedition Base Camp. You are back at the start post.${bogMsg}`);
       setEventPrompt({
         title: 'Base Expedition Camp',
         category: 'Landmark',
@@ -679,7 +764,27 @@ export default function App() {
       return;
     }
 
-    // Standard move message
+    // 9. If one or more bogs were traversed along the path to an ordinary wilderness hex
+    if (bogsTraversedCount > 0) {
+      const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Goal lies to the ${activatedCairnClue}!` : '';
+      setStatusMessage(
+        `Slogged through peat bog (-${bogPenalty} ⚡)! Energy: ${remainingEnergy}/${MAX_ENERGY}.${cairnMsg}`
+      );
+      setEventPrompt({
+        title: bogsTraversedCount > 1 ? 'Peat Bogs Traversed!' : 'Peat Bog Traversed!',
+        category: 'Hazard',
+        description:
+          bogsTraversedCount > 1
+            ? `You slogged through ${bogsTraversedCount} treacherous peat bogs along your journey! Sucking mud and thick muck sapped an extra -${bogPenalty} Energy.`
+            : 'You slogged through a treacherous peat bog along your journey! Sucking mud and thick muck sapped an extra -1 Energy.',
+        type: 'bog',
+        coord: bogCoordsTraversed[0],
+        statBadge: `-${bogPenalty} Energy Sapped!`,
+      });
+      return;
+    }
+
+    // Standard move message (no bogs traversed, destination is blank wilderness)
     const cairnMsg = activatedCairnClue ? ` Activated Cairn along path: Goal lies to the ${activatedCairnClue}!` : '';
     setStatusMessage(
       `Moved to (${destination.col}, ${destination.row}). Energy: ${remainingEnergy}/${MAX_ENERGY}.${cairnMsg} Roll for your next move.`
@@ -687,7 +792,7 @@ export default function App() {
 
     // Check Energy Exhaustion
     if (remainingEnergy <= 0) {
-      setIsLost(true);
+      triggerExhaustionSequence(updatedTiles);
     }
   };
 
@@ -700,6 +805,8 @@ export default function App() {
   // Resolve Fate Event Roll from Shrine or Rift
   const handleResolveEvent = (rollResult?: number) => {
     if (!eventPrompt) return;
+
+    let riftExhausted = false;
 
     if (eventPrompt.type === 'shrine' && rollResult) {
       switch (rollResult) {
@@ -725,6 +832,7 @@ export default function App() {
           sounds.playBonus();
           setFreeMoves((prev) => prev + 1);
           setEnergy((prev) => Math.min(prev + 2, MAX_ENERGY));
+          isPendingExhaustionRef.current = false;
           setStatusMessage('Free Move blessing & +2 Energy! You can step into an adjacent hex for 0 ⚡, and restored +2 Energy!');
           break;
         }
@@ -732,6 +840,7 @@ export default function App() {
           sounds.playBonus();
           setHasTelescope(true);
           setEnergy((prev) => Math.min(prev + 2, MAX_ENERGY));
+          isPendingExhaustionRef.current = false;
           setStatusMessage('Brass Telescope & +2 Energy! Future watchtowers reveal all 6 directions, and restored +2 Energy!');
           break;
         }
@@ -739,6 +848,7 @@ export default function App() {
           sounds.playBonus();
           setHasDiceModifier(true);
           setEnergy((prev) => Math.min(prev + 2, MAX_ENERGY));
+          isPendingExhaustionRef.current = false;
           setStatusMessage('Dice Modifier & +2 Energy! You can now adjust either die by ±1 every turn, and restored +2 Energy!');
           break;
         }
@@ -748,7 +858,9 @@ export default function App() {
         sounds.playHazard();
         setEnergy((prev) => {
           const next = Math.max(0, prev - 2);
-          if (next <= 0) setIsLost(true);
+          if (next <= 0) {
+            riftExhausted = true;
+          }
           return next;
         });
         setStatusMessage('Entangled in brambles! Lost -2 Energy.');
@@ -758,47 +870,54 @@ export default function App() {
       }
     }
 
+    const wasPending = isPendingExhaustionRef.current;
     setEventPrompt(null);
-  };
 
-  // Toggle Move 1 Mode (costs 1 Energy or 0 Energy if Free Move available)
-  const handleToggleMoveOne = () => {
-    if (energy <= 0 && freeMoves <= 0) return;
-    setIsMoveOne((prev) => !prev);
-    if (!isMoveOne) {
-      setStatusMessage(
-        freeMoves > 0
-          ? `Free Move Active (${freeMoves} free move${freeMoves > 1 ? 's' : ''} available): Tap any directly adjacent hex to step into it for FREE (0 ⚡).`
-          : 'Move 1 Active: Tap any directly adjacent hex (revealed or hidden) to step into it (-1 ⚡).'
-      );
-    } else {
-      setStatusMessage('Move 1 cancelled.');
+    // If expedition is exhausted, reveal the goal hex on the map and show game over popup after delay
+    if (wasPending || riftExhausted) {
+      triggerExhaustionSequence(undefined, 1800);
     }
   };
 
-  // Click on a Hex (handles Move 1 if active, or triggers tile info pop-up inspection)
+  // Toggle Free Move 1 Hex Mode (only available when granted by Fortune Shrine)
+  const handleToggleMoveOne = () => {
+    if (freeMoves <= 0) {
+      setIsMoveOne(false);
+      return;
+    }
+    setIsMoveOne((prev) => !prev);
+    if (!isMoveOne) {
+      setStatusMessage(
+        `Free Move Active (${freeMoves} free move${freeMoves > 1 ? 's' : ''} available): Tap any directly adjacent hex to step into it for FREE (0 ⚡).`
+      );
+    } else {
+      setStatusMessage('Free Move cancelled.');
+    }
+  };
+
+  // Click on a Hex (handles Free Move 1 if active, or triggers tile info pop-up inspection)
   const handleTileClick = (coord: HexCoord) => {
     const tileKey = `${coord.col},${coord.row}`;
     const tile = mapData.tiles.get(tileKey);
 
     if (isMoveOne) {
+      if (freeMoves <= 0) {
+        setIsMoveOne(false);
+        setStatusMessage('No free moves available!');
+        return;
+      }
+
       const neighbors = getAllNeighbors(playerCoord);
       const isAdjacent = neighbors.some((n) => n.col === coord.col && n.row === coord.row);
 
       if (!isAdjacent) {
-        setStatusMessage('Can only Move 1 into a directly adjacent hex next to your pawn!');
+        setStatusMessage('Can only move into a directly adjacent hex next to your pawn!');
         return;
       }
 
-      if (energy <= 0 && freeMoves <= 0) {
-        setStatusMessage('No energy or free moves left!');
-        return;
-      }
-
-      // Exit Move 1 mode and step immediately into target hex
-      const isFree = freeMoves > 0;
+      // Exit Move 1 mode and step immediately into target hex (costs 0 energy, consumes 1 freeMove charge)
       setIsMoveOne(false);
-      executeMoveTo([coord], isFree);
+      executeMoveTo([coord], true);
       return;
     }
 
@@ -865,13 +984,14 @@ export default function App() {
 
       case 'bog_hazard':
         setEventPrompt({
-          title: 'Peat Bog Hazard',
+          title: tile.activated ? 'Peat Bog (Traversed)' : 'Peat Bog Hazard',
           category: 'Tile Inspection',
-          description:
-            'Deep waterlogged peat moss and sucking mire. Landing directly on this hex costs an extra -1 Energy penalty to pull your boots free.',
+          description: tile.activated
+            ? 'Waterlogged peat and mud that your expedition has already slogged through. The sucking mud was crossed (-1 Energy previously paid), and it is now safe to traverse.'
+            : 'Deep waterlogged peat moss and sucking mire. Passing over or landing on this hex costs an extra -1 Energy penalty to pull your boots free.',
           type: 'bog',
           coord,
-          statBadge: 'Hazard: -1 Energy on Landing',
+          statBadge: tile.activated ? 'Traversed: Safe to Cross' : 'Hazard: -1 Energy on Crossing',
         });
         break;
 
@@ -892,7 +1012,7 @@ export default function App() {
           title: 'Fortune Shrine',
           category: 'Tile Inspection',
           description:
-            'A mystical shrine sculpted from resonant violet crystal. Landing directly on this hex triggers a Fate D6 roll for 1 of 6 blessings:\n1: Ancient Map (Goal Quadrant)\n2: Brass Telescope (Towers reveal all 6 directions)\n3: +1 Energy\n4: +2 Energy\n5: Telescope & +1 Energy\n6: Map & +1 Energy',
+            'A mystical shrine sculpted from resonant violet crystal. Landing directly on this hex triggers a Fate D6 roll for 1 of 6 blessings:\n• 1 Pip: Free Move 1 Hex (0 ⚡)\n• 2 Pips: Brass Telescope (Towers reveal all 6 rays)\n• 3 Pips: Dice Modifier (±1 to either die each turn)\n• 4 Pips: Free Move 1 Hex & +2 Energy\n• 5 Pips: Brass Telescope & +2 Energy\n• 6 Pips: Dice Modifier & +2 Energy',
           type: 'shrine',
           coord,
           statBadge: 'Landmark: Fate D6 Roll on Landing',
@@ -1027,7 +1147,7 @@ export default function App() {
       <EventModal prompt={eventPrompt} onResolve={handleResolveEvent} />
 
       {/* Game Over / Win Modal */}
-      {(isWon || isLost) && (
+      {(isWon || isLost) && !reviewingMap && (
         <GameOverModal
           won={isWon}
           turns={turn}
@@ -1037,7 +1157,29 @@ export default function App() {
           towersFound={visitedTowerCount}
           totalTowers={mapData.towerCoords.length}
           onRestart={handleNewGame}
+          onReviewMap={() => setReviewingMap(true)}
         />
+      )}
+
+      {/* Floating banner when reviewing map after game ends */}
+      {(isWon || isLost) && reviewingMap && (
+        <div className="fixed top-14 right-4 z-40 flex items-center gap-2 bg-[#f4edd9]/95 backdrop-blur-xs border-2 border-[#2b261f] py-1.5 px-3 rounded-lg shadow-xl font-mono text-xs select-none">
+          <span className="font-bold text-[#2b261f]">
+            {isWon ? '🏆 Beacon Reached!' : '📍 Beacon Revealed'}
+          </span>
+          <button
+            onClick={() => setReviewingMap(false)}
+            className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold rounded border border-[#2b261f] cursor-pointer"
+          >
+            Expedition Ledger
+          </button>
+          <button
+            onClick={handleNewGame}
+            className="px-2.5 py-1 bg-[#e2d5bd] hover:bg-[#d8c8ab] text-[#2b261f] font-bold rounded border border-[#2b261f] cursor-pointer"
+          >
+            New Game
+          </button>
+        </div>
       )}
     </div>
   );

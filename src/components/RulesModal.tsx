@@ -68,8 +68,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
             <ul className="list-disc pl-4 space-y-1 text-[11px]">
               <li><strong>Moving:</strong> Costs 1 Energy per hex traveled.</li>
               <li><strong>Boundary Bouncing:</strong> If your path reaches the edge of the map, it bounces back into the grid so you never get stuck with lost moves.</li>
-              <li><strong>Revealing vs Activating:</strong> All hexes passed over are revealed from the fog. However, hazards and shrines only trigger if you land on them — except for Clue Cairns, which activate whenever you pass over them!</li>
-              <li><strong>Move 1 Step:</strong> At any time (before or after rolling), you may pay 1 Energy to move directly into any adjacent hex (revealed or hidden), exploring and activating that space.</li>
+              <li><strong>Revealing vs Activating:</strong> All hexes passed over are revealed from the fog. Shrines, caches, and rifts only trigger if you land on them — but Clue Cairns activate, and Peat Bogs apply their -1 Energy penalty, whenever you pass over them (watchtowers revealing bogs from afar do not trigger the penalty)!</li>
+              <li><strong>Free Move 1 Hex:</strong> When blessed by a Fortune Shrine, you can trigger a Free Move to step directly into any adjacent hex for 0 Energy (costs no ⚡).</li>
             </ul>
           </div>
 
@@ -108,7 +108,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               <span>Environmental Hazards</span>
             </div>
             <ul className="list-disc pl-4 space-y-1 text-[11px]">
-              <li><strong>Peat Bogs:</strong> Cost -1 extra Energy to traverse.</li>
+              <li><strong>Peat Bogs:</strong> Sucking mud inflicts a -1 extra Energy penalty whenever passed over or landed on (revealing from afar via Watchtower does not inflict any penalty). Once traversed, the bog remains marked in subdued wilderness colors and can be crossed safely without further penalty.</li>
               <li><strong>Arcane Rifts:</strong> Unstable! Roll D6 upon entry: Odd inflicts -2 Energy penalty, Even is safe.</li>
             </ul>
           </div>

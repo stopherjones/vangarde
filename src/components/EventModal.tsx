@@ -192,13 +192,13 @@ export const EventModal: React.FC<EventModalProps> = ({ prompt, onResolve }) => 
                 <div className="mt-2 text-xs font-bold font-mono">
                   {prompt.type === 'shrine' ? (
                     rollResult === 1 ? (
-                      <span className="text-[#b45309]">🗺️ 1 Pip: Ancient Map! Goal quadrant revealed!</span>
+                      <span className="text-[#15803d]">👟 1 Pip: Free Move! Step into an adjacent hex for 0 ⚡!</span>
                     ) : rollResult === 2 ? (
                       <span className="text-[#1e40af]">🔭 2 Pips: Brass Telescope! Towers reveal all 6 directions!</span>
                     ) : rollResult === 3 ? (
                       <span className="text-[#6b21a8]">🎲 3 Pips: Dice Modifier! Adjust either die ±1 each turn!</span>
                     ) : rollResult === 4 ? (
-                      <span className="text-[#b45309]">🗺️⚡ 4 Pips: Ancient Map & +2 Energy restored!</span>
+                      <span className="text-[#15803d]">👟⚡ 4 Pips: Free Move & +2 Energy restored!</span>
                     ) : rollResult === 5 ? (
                       <span className="text-[#1e40af]">🔭⚡ 5 Pips: Brass Telescope & +2 Energy restored!</span>
                     ) : (

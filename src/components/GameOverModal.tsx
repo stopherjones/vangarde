@@ -10,6 +10,7 @@ interface GameOverModalProps {
   towersFound: number;
   totalTowers: number;
   onRestart: () => void;
+  onReviewMap?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -21,6 +22,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   towersFound,
   totalTowers,
   onRestart,
+  onReviewMap,
 }) => {
   const exploredPct = Math.round((revealedCount / totalHexes) * 100);
 
@@ -80,14 +82,26 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             </div>
           </div>
 
-          {/* New Game Button */}
-          <button
-            onClick={onRestart}
-            className="w-full py-3 px-4 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white font-mono font-black text-sm uppercase tracking-wider rounded-lg border-2 border-[#2b261f] shadow-md flex items-center justify-center gap-2 cursor-pointer transition-transform active:translate-y-px"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>Embark On New Expedition</span>
-          </button>
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-1">
+            <button
+              onClick={onRestart}
+              className="w-full py-2.5 px-4 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white font-mono font-black text-xs uppercase tracking-wider rounded-lg border-2 border-[#2b261f] shadow-md flex items-center justify-center gap-2 cursor-pointer transition-transform active:translate-y-px"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Embark On New Expedition</span>
+            </button>
+
+            {onReviewMap && (
+              <button
+                onClick={onReviewMap}
+                className="w-full py-2 px-3 bg-[#e2d5bd] hover:bg-[#d8c8ab] text-[#2b261f] font-mono font-bold text-xs uppercase rounded-lg border-2 border-[#2b261f] flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              >
+                <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                <span>Review Map & Beacon</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { HexCoord, HexTile, DirectionIndex, DeviationState, GoalQuadrant } from '../types';
+import { HexCoord, HexTile, DirectionIndex, DeviationState } from '../types';
 import {
   GRID_COLS,
   GRID_ROWS,
@@ -8,7 +8,6 @@ import {
   getAllNeighbors,
   DIRECTION_LABELS,
   tracePath,
-  isCoordInQuadrant,
   getCairnShortBearing,
 } from '../utils/hexMath';
 
@@ -18,8 +17,6 @@ interface HexGridProps {
   pathPreview: HexCoord[];
   knownTowers: HexCoord[];
   isMoveOne: boolean;
-  goalQuadrant?: GoalQuadrant | null;
-  showMapHighlight?: boolean;
   candidateGoalCoords?: HexCoord[];
   deviationState: DeviationState;
   onTileClick: (coord: HexCoord) => void;
@@ -45,8 +42,6 @@ export const HexGrid: React.FC<HexGridProps> = ({
   pathPreview,
   knownTowers,
   isMoveOne,
-  goalQuadrant,
-  showMapHighlight = true,
   candidateGoalCoords,
   deviationState,
   onTileClick,
@@ -65,7 +60,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
     return false;
   }, [tiles]);
 
-  // Set of coordinates that could be the Golden Beacon based on revealed Cairns / Ancient Map
+  // Set of coordinates that could be the Golden Beacon based on revealed Cairns
   const candidateKeySet = React.useMemo(() => {
     if (isGoalRevealed) {
       return new Set<string>();
@@ -73,17 +68,8 @@ export const HexGrid: React.FC<HexGridProps> = ({
     if (candidateGoalCoords && candidateGoalCoords.length > 0) {
       return new Set(candidateGoalCoords.map((c) => `${c.col},${c.row}`));
     }
-    if (goalQuadrant) {
-      const set = new Set<string>();
-      for (const t of tiles.values()) {
-        if (isCoordInQuadrant({ col: t.col, row: t.row }, goalQuadrant.code)) {
-          set.add(`${t.col},${t.row}`);
-        }
-      }
-      return set;
-    }
     return new Set<string>();
-  }, [isGoalRevealed, candidateGoalCoords, goalQuadrant, tiles]);
+  }, [isGoalRevealed, candidateGoalCoords]);
 
   // Player pixel position
   const playerPixel = hexToPixel(playerCoord.col, playerCoord.row, HEX_RADIUS);
@@ -159,10 +145,9 @@ export const HexGrid: React.FC<HexGridProps> = ({
             knownTowers.some((t) => t.col === tile.col && t.row === tile.row) && !tile.revealed;
           const isMoveOneTarget = isMoveOne && isNeighborOfPlayer;
 
-          // Goal Candidate: unrevealed tiles that match active Cairns / Ancient Map (only before goal is revealed)
+          // Goal Candidate: unrevealed tiles that match active Cairns (only before goal is revealed)
           const isPossibleGoalCandidate = Boolean(
             !isGoalRevealed &&
-            showMapHighlight &&
             candidateKeySet.has(`${tile.col},${tile.row}`) &&
             !tile.revealed
           );
@@ -204,7 +189,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
                 fillColor = '#dbc5ea';
                 break;
               case 'bog_hazard':
-                fillColor = '#c5b49d';
+                fillColor = tile.activated ? '#dbe7d0' : '#c5b49d';
                 break;
               case 'rift_hazard':
                 fillColor = '#f2afaf';
@@ -292,7 +277,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
                 />
               )}
 
-              {/* Ancient Map / Cairn Goal Candidate warm golden shimmer overlay */}
+              {/* Cairn Goal Candidate warm golden shimmer overlay */}
               {isPossibleGoalCandidate && !tile.revealed && (
                 <polygon
                   points={points}
@@ -384,6 +369,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
 
                   {tile.type === 'goal' && (
                     <g transform={`translate(${x}, ${y})`}>
+                      <circle r="16" fill="#f59e0b" opacity="0.35" className="animate-pulse" />
                       <circle r="13" fill="#ffd166" stroke="#2b261f" strokeWidth="1.8" />
                       <polygon
                         points="0,-7 2.2,-2 7,0 2.2,2 0,7 -2.2,2 -7,0 -2.2,-2"
@@ -460,21 +446,26 @@ export const HexGrid: React.FC<HexGridProps> = ({
                     <g transform={`translate(${x}, ${y})`}>
                       <path
                         d="M -8,2 C -5,-2 0,-3 3,0 C 6,2 8,1 8,2 C 8,5 -8,5 -8,2 Z"
-                        fill="#574737"
-                        stroke="#2b261f"
-                        strokeWidth="1"
+                        fill={tile.activated ? '#8a9c7d' : '#574737'}
+                        stroke={tile.activated ? '#4f6144' : '#2b261f'}
+                        strokeWidth={tile.activated ? '0.9' : '1'}
+                        opacity={tile.activated ? 0.8 : 1}
                       />
                       <text
                         y="1.5"
                         textAnchor="middle"
-                        className="text-[8.5px] font-mono font-black fill-[#f7e6d0]"
+                        className={`text-[8.5px] font-mono font-black ${
+                          tile.activated ? 'fill-[#f4f8f1]' : 'fill-[#f7e6d0]'
+                        }`}
                       >
                         -1
                       </text>
                       <text
                         y="16"
                         textAnchor="middle"
-                        className="text-[7.5px] font-mono font-bold fill-[#423325]"
+                        className={`text-[7.5px] font-mono font-bold ${
+                          tile.activated ? 'fill-[#4f6345]' : 'fill-[#423325]'
+                        }`}
                       >
                         BOG
                       </text>

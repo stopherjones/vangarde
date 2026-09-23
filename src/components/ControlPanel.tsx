@@ -197,31 +197,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <span>{diceState.isRolling ? 'ROLLING 2D6...' : 'ROLL 2D6 FOR MOVEMENT'}</span>
             </button>
 
-            <button
-              id="btn-move-one"
-              onClick={onToggleMoveOne}
-              disabled={energy <= 0 && freeMoves <= 0}
-              className={`py-1 px-2.5 text-[10.5px] font-mono font-bold rounded-lg border-2 border-[#2b261f] flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0 leading-tight ${
-                isMoveOne
-                  ? 'bg-[#d97706] text-white ring-2 ring-[#92400e]'
-                  : freeMoves > 0
-                  ? 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d] border-[#16a34a] shadow-xs'
-                  : 'bg-[#f5efe3] hover:bg-[#fff9ed] text-[#2b261f]'
-              }`}
-              title={
-                freeMoves > 0
-                  ? `Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`
-                  : 'Move directly 1 step into any adjacent hex (revealed or hidden) for 1 Energy'
-              }
-            >
-              <div className="flex items-center gap-1">
-                <Footprints className="w-3.5 h-3.5" />
-                <span>{isMoveOne ? 'Cancel' : freeMoves > 0 ? `Free Move (${freeMoves})` : 'Move 1'}</span>
-              </div>
-              <span className="text-[9px] opacity-80 whitespace-nowrap">
-                {isMoveOne ? 'Step' : freeMoves > 0 ? 'FREE ⚡' : '(-1 ⚡)'}
-              </span>
-            </button>
+            {/* Free Move 1 Hex button - ONLY available when granted by Fortune Shrine */}
+            {freeMoves > 0 && (
+              <button
+                id="btn-move-one"
+                onClick={onToggleMoveOne}
+                className={`py-1 px-3 text-[10.5px] font-mono font-bold rounded-lg border-2 border-[#16a34a] flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0 leading-tight shadow-xs ${
+                  isMoveOne
+                    ? 'bg-[#15803d] text-white ring-2 ring-[#166534]'
+                    : 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d]'
+                }`}
+                title={`Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`}
+              >
+                <div className="flex items-center gap-1">
+                  <Footprints className="w-3.5 h-3.5" />
+                  <span>{isMoveOne ? 'Cancel' : `Free Move (${freeMoves})`}</span>
+                </div>
+                <span className="text-[9px] opacity-80 whitespace-nowrap">
+                  {isMoveOne ? 'Tap Hex' : 'FREE ⚡'}
+                </span>
+              </button>
+            )}
           </div>
         ) : (
           /* 2. Post-Roll State: Clean interactive dice row + Execute move */
@@ -258,34 +254,29 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 />
               </div>
 
-              {/* Action Button: Move 1 step option */}
-              <div className="flex items-stretch shrink-0 ml-auto">
-                <button
-                  id="btn-toggle-move-one"
-                  onClick={onToggleMoveOne}
-                  disabled={energy <= 0 && freeMoves <= 0}
-                  className={`py-1 px-2 text-[10px] font-mono font-bold rounded-lg border-2 border-[#2b261f] flex flex-col items-center justify-center transition-all cursor-pointer shrink-0 leading-tight h-full ${
-                    isMoveOne
-                      ? 'bg-[#d97706] text-white ring-2 ring-[#92400e]'
-                      : freeMoves > 0
-                      ? 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d] border-[#16a34a] shadow-xs'
-                      : 'bg-[#f5efe3] hover:bg-[#fff9ed] text-[#2b261f]'
-                  }`}
-                  title={
-                    freeMoves > 0
-                      ? `Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`
-                      : 'Move directly 1 step into an adjacent hex instead of rolling path (-1⚡)'
-                  }
-                >
-                  <div className="flex items-center gap-1">
-                    <Footprints className="w-3 h-3" />
-                    <span>{isMoveOne ? 'Cancel' : freeMoves > 0 ? `Free Move (${freeMoves})` : 'Move 1'}</span>
-                  </div>
-                  <span className="text-[9px] opacity-80 whitespace-nowrap">
-                    {isMoveOne ? 'Step' : freeMoves > 0 ? 'FREE ⚡' : '(-1 ⚡)'}
-                  </span>
-                </button>
-              </div>
+              {/* Action Button: Free Move 1 step option (only if granted by Shrine) */}
+              {freeMoves > 0 && (
+                <div className="flex items-stretch shrink-0 ml-auto">
+                  <button
+                    id="btn-toggle-move-one"
+                    onClick={onToggleMoveOne}
+                    className={`py-1 px-2.5 text-[10px] font-mono font-bold rounded-lg border-2 border-[#16a34a] flex flex-col items-center justify-center transition-all cursor-pointer shrink-0 leading-tight h-full shadow-xs ${
+                      isMoveOne
+                        ? 'bg-[#15803d] text-white ring-2 ring-[#166534]'
+                        : 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d]'
+                    }`}
+                    title={`Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Footprints className="w-3 h-3" />
+                      <span>{isMoveOne ? 'Cancel' : `Free Move (${freeMoves})`}</span>
+                    </div>
+                    <span className="text-[9px] opacity-80 whitespace-nowrap">
+                      {isMoveOne ? 'Tap Hex' : 'FREE ⚡'}
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Hint bar explaining on-map deviation or dice modifier active */}
