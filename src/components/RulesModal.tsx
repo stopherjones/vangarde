@@ -34,8 +34,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               <span>Objective: Find the Lost Beacon</span>
             </div>
             <p>
-              Navigate the 11x12 uncharted wilderness from your base camp at the bottom. Reach the hidden
-              Golden Beacon before your Energy countdown runs out!
+              Navigate the 11x12 uncharted wilderness from your expedition camp in the center of the realm. Reach the hidden
+              Golden Beacon (located more than 2 hexes away from camp) before your Energy countdown runs out!
             </p>
           </div>
 
@@ -87,15 +87,15 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
                 <strong>Supply Caches:</strong> Abundant food & water caches (+1, +2, or +3 Energy) scattered through the wilderness.
               </div>
               <div className="p-1.5 bg-[#dbc5ea]/40 rounded border border-[#2b261f]/20 sm:col-span-2">
-                <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Ancient Map (highlights all possible hexes in the goal quadrant; toggle on/off via header 🗺️ icon), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Map & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
+                <strong>Fortune Shrines:</strong> Roll Fate D6: 1 Pip = Free Move 1 Hex (step into any adjacent hex for 0 ⚡), 2 Pips = Brass Telescope (Towers reveal all 6 rays), 3 Pips = Dice Modifier (±1 to either die each turn), 4 = Free Move 1 Hex & +2 Energy, 5 = Telescope & +2 Energy, 6 = Dice Modifier & +2 Energy.
               </div>
               <div className="p-1.5 bg-[#d9d0c1] rounded border border-[#2b261f]/20 sm:col-span-2">
-                <strong>Clue Cairns (1 per column):</strong> Activates both when landed on or passed over, etching a compass bearing to the Golden Beacon:
+                <strong>Clue Cairns (1 per column):</strong> When revealed, each cairn activates and signposts the bearing to the Golden Beacon based on coordinate proportions:
                 <div className="mt-1 pl-2 border-l-2 border-[#2b261f]/30 space-y-0.5 text-[10.5px]">
-                  <div>• <strong>Due North (↑ N):</strong> 3-column cone — the beacon is north within this cairn's own column or 1 column to either side (same column, 1 col West, or 1 col East).</div>
-                  <div>• <strong>North-East (↗ NE):</strong> Beacon is 2 or more columns to the East.</div>
-                  <div>• <strong>North-West (↖ NW):</strong> Beacon is 2 or more columns to the West.</div>
-                  <div>• <strong>Directly North:</strong> Beacon is adjacent in the hex directly above.</div>
+                  <div>• <strong>North / South (↑ N / ↓ S):</strong> Beacon is predominantly north or south. All tiles north or south of the cairn are highlighted.</div>
+                  <div>• <strong>East / West (→ E / ← W):</strong> Beacon is predominantly east or west. All tiles east or west of the cairn are highlighted.</div>
+                  <div>• <strong>Diagonals (↗ NE, ↖ NW, ↘ SE, ↙ SW):</strong> Roughly as many spaces north/south as east/west. That entire quadrant is highlighted.</div>
+                  <div>• <strong>Triangulation:</strong> As you discover multiple cairns, their overlapping regions intersect to progressively whittle down the beacon's exact location!</div>
                 </div>
               </div>
             </div>

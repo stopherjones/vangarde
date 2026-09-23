@@ -1,4 +1,4 @@
-import { DirectionIndex, HexCoord } from '../types';
+import { DirectionIndex, HexCoord, HexTile, GoalQuadrant } from '../types';
 
 export const GRID_COLS = 11;
 export const GRID_ROWS = 12;
@@ -323,28 +323,186 @@ export function hexDistance(a: HexCoord, b: HexCoord): number {
   return Math.max(Math.abs(q1 - q2), Math.abs(r1 - r2), Math.abs(s1 - s2));
 }
 
-// Compass direction hint from adventurer to goal
+// Proportion-based compass direction from cairn to goal:
+// - "More north/south than east/west" (|dy| >= 1.5 * |dx|) -> North / South
+// - "More east/west than north/south" (|dx| >= 1.5 * |dy|) -> East / West
+// - "Roughly as many spaces north/south and east/west" -> Diagonals (NE, NW, SE, SW)
 export function getCompassDirection(from: HexCoord, to: HexCoord): string {
-  const dx = to.col - from.col;
-  const dy = to.row - from.row;
-
-  if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) {
-    if (dy < 0) return 'directly North';
-    if (dy > 0) return 'directly South';
-    if (dx > 0) return 'East';
-    return 'West';
+  if (from.col === to.col && from.row === to.row) {
+    return 'Here';
   }
 
-  if (dy < -2) {
-    if (dx > 1) return 'North-East';
-    if (dx < -1) return 'North-West';
-    return 'due North';
+  const p1 = hexToPixel(from.col, from.row, 23);
+  const p2 = hexToPixel(to.col, to.row, 23);
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+
+  const absX = Math.abs(dx);
+  const absY = Math.abs(dy);
+
+  // Dominant vertical: significantly more north or south than east/west
+  if (absY >= 1.5 * absX) {
+    return dy < 0 ? 'North' : 'South';
   }
-  if (dy > 2) {
-    if (dx > 1) return 'South-East';
-    if (dx < -1) return 'South-West';
-    return 'due South';
+
+  // Dominant horizontal: significantly more east or west than north/south
+  if (absX >= 1.5 * absY) {
+    return dx > 0 ? 'East' : 'West';
   }
-  if (dx > 0) return 'East';
-  return 'West';
+
+  // Balanced proportions: roughly as many spaces north/south and east/west
+  if (dy < 0 && dx > 0) return 'North-East';
+  if (dy < 0 && dx < 0) return 'North-West';
+  if (dy > 0 && dx > 0) return 'South-East';
+  return 'South-West';
+}
+
+// Check if a candidate tile is consistent with a cairn's broadened signpost:
+// - North: all tiles north of the cairn (dy < 0)
+// - South: all tiles south of the cairn (dy > 0)
+// - East: all tiles east of the cairn (dx > 0)
+// - West: all tiles west of the cairn (dx < 0)
+// - Diagonals: all tiles in the respective quadrant from the cairn
+export function isTileConsistentWithCairn(
+  cairnCoord: HexCoord,
+  bearing: string,
+  tileCoord: HexCoord
+): boolean {
+  if (cairnCoord.col === tileCoord.col && cairnCoord.row === tileCoord.row) {
+    return false;
+  }
+
+  const cPixel = hexToPixel(cairnCoord.col, cairnCoord.row, 23);
+  const tPixel = hexToPixel(tileCoord.col, tileCoord.row, 23);
+  const dx = tPixel.x - cPixel.x;
+  const dy = tPixel.y - cPixel.y;
+  const EPSILON = 2; // threshold to prevent floating point edge ambiguity
+
+  switch (bearing) {
+    case 'North':
+    case 'due North':
+    case 'directly North':
+      return dy < -EPSILON;
+
+    case 'South':
+    case 'due South':
+    case 'directly South':
+      return dy > EPSILON;
+
+    case 'East':
+      return dx > EPSILON;
+
+    case 'West':
+      return dx < -EPSILON;
+
+    case 'North-East':
+      return dy < -EPSILON && dx > EPSILON;
+
+    case 'North-West':
+      return dy < -EPSILON && dx < -EPSILON;
+
+    case 'South-East':
+      return dy > EPSILON && dx > EPSILON;
+
+    case 'South-West':
+      return dy > EPSILON && dx < -EPSILON;
+
+    default:
+      return true;
+  }
+}
+
+// Compact directional arrow symbol and short code for cairns
+export function getCairnShortBearing(bearing?: string): string {
+  if (!bearing) return 'CAIRN';
+  switch (bearing) {
+    case 'North':
+    case 'due North':
+    case 'directly North':
+      return '↑ N';
+    case 'North-East':
+      return '↗ NE';
+    case 'East':
+      return '→ E';
+    case 'South-East':
+      return '↘ SE';
+    case 'South':
+    case 'due South':
+    case 'directly South':
+      return '↓ S';
+    case 'South-West':
+      return '↙ SW';
+    case 'West':
+      return '← W';
+    case 'North-West':
+      return '↖ NW';
+    default:
+      return bearing;
+  }
+}
+
+// Calculate all possible goal coordinates based on start distance, revealed cairns, and optional quadrant
+export function getPossibleGoalCoords(
+  tiles: Map<string, HexTile>,
+  startCoord: HexCoord,
+  goalQuadrant?: GoalQuadrant | null
+): HexCoord[] {
+  // If the goal itself is already revealed, remove all candidate highlights
+  for (const tile of tiles.values()) {
+    if (tile.type === 'goal' && tile.revealed) {
+      return [];
+    }
+  }
+
+  // 1. Collect all revealed cairns and their bearings
+  const revealedCairns: { coord: HexCoord; bearing: string }[] = [];
+  for (const tile of tiles.values()) {
+    if (tile.type === 'clue_cairn' && tile.revealed && tile.cairnBearing) {
+      revealedCairns.push({
+        coord: { col: tile.col, row: tile.row },
+        bearing: tile.cairnBearing,
+      });
+    }
+  }
+
+  // If no cairns are revealed and no quadrant map has been acquired, do not highlight
+  if (revealedCairns.length === 0 && !goalQuadrant) {
+    return [];
+  }
+
+  const candidates: HexCoord[] = [];
+
+  for (let r = 0; r < GRID_ROWS; r++) {
+    for (let c = 0; c < GRID_COLS; c++) {
+      const coord: HexCoord = { col: c, row: r };
+      const key = `${c},${r}`;
+      const tile = tiles.get(key);
+
+      // Rule 1: Goal is never within 2 hexes of start tile (> 2 hexes away)
+      if (hexDistance(coord, startCoord) <= 2) {
+        continue;
+      }
+
+      // Rule 2: If tile is already revealed, it can only be candidate if it is the goal itself
+      if (tile && tile.revealed && tile.type !== 'goal') {
+        continue;
+      }
+
+      // Rule 3: If Ancient Map quadrant is known, must be within that quadrant
+      if (goalQuadrant && !isCoordInQuadrant(coord, goalQuadrant.code)) {
+        continue;
+      }
+
+      // Rule 4: Must be consistent with every revealed cairn's broadened signpost
+      const matchesAllCairns = revealedCairns.every((cairn) => {
+        return isTileConsistentWithCairn(cairn.coord, cairn.bearing, coord);
+      });
+
+      if (matchesAllCairns) {
+        candidates.push(coord);
+      }
+    }
+  }
+
+  return candidates;
 }

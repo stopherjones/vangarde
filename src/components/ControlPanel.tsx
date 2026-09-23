@@ -16,6 +16,7 @@ interface ControlPanelProps {
   energy: number;
   pathPreview: HexCoord[];
   isMoveOne: boolean;
+  freeMoves?: number;
   hasDiceModifier?: boolean;
   statusMessage: string;
   onRollDice: () => void;
@@ -167,6 +168,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   energy,
   pathPreview,
   isMoveOne,
+  freeMoves = 0,
   hasDiceModifier,
   statusMessage,
   onRollDice,
@@ -198,19 +200,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             <button
               id="btn-move-one"
               onClick={onToggleMoveOne}
-              disabled={energy <= 0}
+              disabled={energy <= 0 && freeMoves <= 0}
               className={`py-1 px-2.5 text-[10.5px] font-mono font-bold rounded-lg border-2 border-[#2b261f] flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0 leading-tight ${
                 isMoveOne
                   ? 'bg-[#d97706] text-white ring-2 ring-[#92400e]'
+                  : freeMoves > 0
+                  ? 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d] border-[#16a34a] shadow-xs'
                   : 'bg-[#f5efe3] hover:bg-[#fff9ed] text-[#2b261f]'
               }`}
-              title="Move directly 1 step into any adjacent hex (revealed or hidden) for 1 Energy"
+              title={
+                freeMoves > 0
+                  ? `Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`
+                  : 'Move directly 1 step into any adjacent hex (revealed or hidden) for 1 Energy'
+              }
             >
               <div className="flex items-center gap-1">
                 <Footprints className="w-3.5 h-3.5" />
-                <span>{isMoveOne ? 'Cancel' : 'Move 1'}</span>
+                <span>{isMoveOne ? 'Cancel' : freeMoves > 0 ? `Free Move (${freeMoves})` : 'Move 1'}</span>
               </div>
-              <span className="text-[9px] opacity-80 whitespace-nowrap">{isMoveOne ? 'Step' : '(-1 ⚡)'}</span>
+              <span className="text-[9px] opacity-80 whitespace-nowrap">
+                {isMoveOne ? 'Step' : freeMoves > 0 ? 'FREE ⚡' : '(-1 ⚡)'}
+              </span>
             </button>
           </div>
         ) : (
@@ -253,19 +263,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 <button
                   id="btn-toggle-move-one"
                   onClick={onToggleMoveOne}
-                  disabled={energy <= 0}
+                  disabled={energy <= 0 && freeMoves <= 0}
                   className={`py-1 px-2 text-[10px] font-mono font-bold rounded-lg border-2 border-[#2b261f] flex flex-col items-center justify-center transition-all cursor-pointer shrink-0 leading-tight h-full ${
                     isMoveOne
                       ? 'bg-[#d97706] text-white ring-2 ring-[#92400e]'
+                      : freeMoves > 0
+                      ? 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d] border-[#16a34a] shadow-xs'
                       : 'bg-[#f5efe3] hover:bg-[#fff9ed] text-[#2b261f]'
                   }`}
-                  title="Move directly 1 step into an adjacent hex instead of rolling path (-1⚡)"
+                  title={
+                    freeMoves > 0
+                      ? `Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`
+                      : 'Move directly 1 step into an adjacent hex instead of rolling path (-1⚡)'
+                  }
                 >
                   <div className="flex items-center gap-1">
                     <Footprints className="w-3 h-3" />
-                    <span>{isMoveOne ? 'Cancel' : 'Move 1'}</span>
+                    <span>{isMoveOne ? 'Cancel' : freeMoves > 0 ? `Free Move (${freeMoves})` : 'Move 1'}</span>
                   </div>
-                  <span className="text-[9px] opacity-80 whitespace-nowrap">{isMoveOne ? 'Step' : '(-1 ⚡)'}</span>
+                  <span className="text-[9px] opacity-80 whitespace-nowrap">
+                    {isMoveOne ? 'Step' : freeMoves > 0 ? 'FREE ⚡' : '(-1 ⚡)'}
+                  </span>
                 </button>
               </div>
             </div>

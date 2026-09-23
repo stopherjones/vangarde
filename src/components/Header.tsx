@@ -9,11 +9,9 @@ interface HeaderProps {
   totalHexes: number;
   goalFound: boolean;
   goalClue?: string | null;
-  goalQuadrant?: { code: string; name: string; bounds?: string } | null;
+  freeMoves?: number;
   hasTelescope?: boolean;
   hasDiceModifier?: boolean;
-  showMapHighlight?: boolean;
-  onToggleMapHighlight?: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onOpenRules: () => void;
@@ -28,11 +26,9 @@ export const Header: React.FC<HeaderProps> = ({
   totalHexes,
   goalFound,
   goalClue,
-  goalQuadrant,
+  freeMoves = 0,
   hasTelescope,
   hasDiceModifier,
-  showMapHighlight = true,
-  onToggleMapHighlight,
   soundEnabled,
   onToggleSound,
   onOpenRules,
@@ -61,28 +57,19 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Hex Crawl</span>
           </div>
 
-          {(goalQuadrant || hasTelescope || hasDiceModifier) && (
+          {(freeMoves > 0 || hasTelescope || hasDiceModifier) && (
             <div className="flex items-center gap-1 ml-1 text-[10px] normal-case">
-              {goalQuadrant && (
-                <button
-                  type="button"
-                  onClick={onToggleMapHighlight}
-                  className={`px-1.5 py-0.5 rounded font-black font-mono cursor-pointer transition-all flex items-center gap-1 active:scale-95 ${
-                    showMapHighlight
-                      ? 'bg-[#d97706] text-white border border-[#92400e] shadow-xs ring-1 ring-[#b45309]'
-                      : 'bg-[#fef3c7] text-[#92400e] border border-[#b45309]/50 hover:bg-[#fde68a] opacity-80'
-                  }`}
-                  title={`Ancient Map (${goalQuadrant.name}): Tap to ${showMapHighlight ? 'hide' : 'highlight'} candidate hexes`}
+              {freeMoves > 0 && (
+                <span
+                  className="px-1.5 py-0.5 bg-[#dcfce7] text-[#15803d] border border-[#22c55e]/60 rounded font-black font-mono flex items-center gap-0.5 shadow-2xs"
+                  title={`Free Move Active: ${freeMoves} free 1-hex step${freeMoves > 1 ? 's' : ''} available (0 ⚡)`}
                 >
-                  <span>🗺️ {goalQuadrant.code}</span>
-                  <span className="text-[8.5px] font-bold uppercase tracking-wider opacity-90">
-                    {showMapHighlight ? 'ON' : 'OFF'}
-                  </span>
-                </button>
+                  👟 {freeMoves} Free
+                </span>
               )}
               {hasTelescope && (
                 <span
-                  className="px-1.5 py-0.2 bg-[#dbeafe] text-[#1e40af] border border-[#3b82f6]/50 rounded font-black font-mono"
+                  className="px-1.5 py-0.5 bg-[#dbeafe] text-[#1e40af] border border-[#3b82f6]/50 rounded font-black font-mono shadow-2xs"
                   title="Telescope Active: Watchtowers reveal all 6 directions to board edge!"
                 >
                   🔭 Scope
@@ -90,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
               {hasDiceModifier && (
                 <span
-                  className="px-1.5 py-0.2 bg-[#f3e8ff] text-[#6b21a8] border border-[#9333ea]/50 rounded font-black font-mono"
+                  className="px-1.5 py-0.5 bg-[#f3e8ff] text-[#6b21a8] border border-[#9333ea]/50 rounded font-black font-mono shadow-2xs"
                   title="Dice Modifier Active: You can adjust either movement die by ±1 every turn!"
                 >
                   🎲 ±1 Mod
@@ -158,13 +145,15 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[9px] uppercase font-mono text-[#5c5446]">Goal:</span>
           <span
             className={`text-[11px] font-black font-mono uppercase truncate ${
-              goalFound ? 'text-[#2d6a4f]' : goalClue ? 'text-[#b45309]' : 'text-[#8a7f6f]'
+              goalFound
+                ? 'text-[#2d6a4f]'
+                : goalClue
+                ? 'text-[#b45309]'
+                : 'text-[#8a7f6f]'
             }`}
             title={
               goalFound
                 ? 'Goal Found!'
-                : goalQuadrant
-                ? `In ${goalQuadrant.name}${goalClue ? ` (${goalClue})` : ''}`
                 : goalClue
                 ? `Goal lies: ${goalClue}`
                 : 'Goal Hidden'
@@ -172,8 +161,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             {goalFound
               ? '🌟 Found'
-              : goalQuadrant
-              ? `${goalQuadrant.code} ${goalClue || ''}`
               : goalClue
               ? `🧭 ${goalClue}`
               : '❓ Hidden'}

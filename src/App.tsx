@@ -17,7 +17,7 @@ import {
   getAllNeighbors,
   getCompassDirection,
   getTowerRevealedCoords,
-  getQuadrant,
+  getPossibleGoalCoords,
 } from './utils/hexMath';
 import { generateMap, START_COORD } from './utils/gameEngine';
 import { sounds } from './utils/sound';
@@ -86,12 +86,8 @@ export default function App() {
   // Compass clue to goal discovered from Cairns
   const [goalClue, setGoalClue] = useState<string | null>(null);
 
-  // Ancient Map (from Shrines): reveals which quadrant the goal tile is in
-  const [goalQuadrant, setGoalQuadrant] = useState<{
-    code: 'NW' | 'NE' | 'SW' | 'SE';
-    name: string;
-    bounds: string;
-  } | null>(null);
+  // Free move 1-hex charges acquired from Fortune Shrines
+  const [freeMoves, setFreeMoves] = useState<number>(0);
 
   // Brass Telescope (from Shrines): reveals all tiles in all 6 directions on future towers visited
   const [hasTelescope, setHasTelescope] = useState<boolean>(false);
@@ -99,8 +95,26 @@ export default function App() {
   // Dice Modifier (from Shrines): allows +/- 1 adjustment to either movement die each turn
   const [hasDiceModifier, setHasDiceModifier] = useState<boolean>(false);
 
-  // Ancient Map highlight toggle (shows/hides candidate sector hexes)
-  const [showMapHighlight, setShowMapHighlight] = useState<boolean>(true);
+  // Check if goal has been revealed
+  const goalTile = mapData.tiles.get(`${mapData.goalCoord.col},${mapData.goalCoord.row}`);
+  const goalFound = !!goalTile?.revealed;
+
+  // Dynamic candidate goal coordinates calculated from revealed Cairns and Ancient Map
+  const candidateGoalCoords = useMemo(() => {
+    if (goalFound) {
+      return [];
+    }
+    return getPossibleGoalCoords(mapData.tiles, START_COORD);
+  }, [mapData.tiles, goalFound]);
+
+  // Count of active revealed cairns
+  const revealedCairnCount = useMemo(() => {
+    let count = 0;
+    for (const t of mapData.tiles.values()) {
+      if (t.type === 'clue_cairn' && t.revealed) count++;
+    }
+    return count;
+  }, [mapData.tiles]);
 
   // Modal Dialogs
   const [showRules, setShowRules] = useState<boolean>(false);
@@ -114,8 +128,7 @@ export default function App() {
     setKnownTowers([]);
     setVisitedTowerCount(0);
     setGoalClue(null);
-    setGoalQuadrant(null);
-    setShowMapHighlight(true);
+    setFreeMoves(0);
     setHasTelescope(false);
     setHasDiceModifier(false);
     setEnergy(MAX_ENERGY);
@@ -433,24 +446,30 @@ export default function App() {
     }
 
     // Cairns activate when revealed or passed over, showing rough direction to the goal
-    if (tile.type === 'clue_cairn' && !tile.activated) {
+    if (tile.type === 'clue_cairn') {
       tile.activated = true;
-      const bearing = getCompassDirection(coord, mapData.goalCoord);
-      tile.cairnBearing = bearing;
-      setGoalClue(bearing);
+      if (!tile.cairnBearing) {
+        tile.cairnBearing = getCompassDirection(coord, mapData.goalCoord);
+      }
+      setGoalClue(tile.cairnBearing);
     }
 
     return tile;
   };
 
   // Execute Move along a sequence of steps
-  const executeMoveTo = (steps: HexCoord[]) => {
-    if (steps.length === 0 || energy <= 0) return;
+  const executeMoveTo = (steps: HexCoord[], isFreeMove?: boolean) => {
+    if (steps.length === 0) return;
+    if (energy <= 0 && !isFreeMove) return;
 
     const destination = steps[steps.length - 1];
-    const energyCost = steps.length;
+    const energyCost = isFreeMove ? 0 : steps.length;
 
     sounds.playStep();
+
+    if (isFreeMove) {
+      setFreeMoves((prev) => Math.max(0, prev - 1));
+    }
 
     // Spend energy
     const remainingEnergy = Math.max(0, energy - energyCost);
@@ -459,19 +478,20 @@ export default function App() {
     // Update map tiles along path and at destination
     const updatedTiles = new Map(mapData.tiles);
 
-    // Reveal intermediate tiles passed through, but only activate cairns along the path
+    // Reveal intermediate tiles passed through, and activate cairns along the path
     let activatedCairnClue: string | null = null;
     for (const step of steps) {
       const t = updatedTiles.get(`${step.col},${step.row}`);
       if (t) {
         t.revealed = true;
-        // Hexes reveal, but do not activate when passed over, other than cairns
-        if (t.type === 'clue_cairn' && !t.activated) {
+        // Hexes reveal, and cairns activate when revealed or passed over
+        if (t.type === 'clue_cairn') {
           t.activated = true;
-          const bearing = getCompassDirection({ col: t.col, row: t.row }, mapData.goalCoord);
-          t.cairnBearing = bearing;
-          activatedCairnClue = bearing;
-          setGoalClue(bearing);
+          if (!t.cairnBearing) {
+            t.cairnBearing = getCompassDirection({ col: t.col, row: t.row }, mapData.goalCoord);
+          }
+          activatedCairnClue = t.cairnBearing;
+          setGoalClue(t.cairnBearing);
           sounds.playBonus();
         }
       }
@@ -515,7 +535,15 @@ export default function App() {
       const towerRevealed = getTowerRevealedCoords(destination, hasTelescope);
       for (const n of towerRevealed) {
         const nt = updatedTiles.get(`${n.col},${n.row}`);
-        if (nt) nt.revealed = true;
+        if (nt) {
+          nt.revealed = true;
+          if (nt.type === 'clue_cairn') {
+            nt.activated = true;
+            if (!nt.cairnBearing) {
+              nt.cairnBearing = getCompassDirection(n, mapData.goalCoord);
+            }
+          }
+        }
       }
       // Reveal locations of all other towers
       setKnownTowers(mapData.towerCoords);
@@ -568,10 +596,10 @@ export default function App() {
         title: 'Fortune Shrine Discovered',
         category: 'Discovery',
         description:
-          'You kneel before an ancient violet crystalline altar. Roll the Fate D6 to receive an ancient blessing:\n• 1 Pip: Ancient Map (Goal Quadrant)\n• 2 Pips: Brass Telescope (Future towers reveal all 6 directions to map edge)\n• 3 Pips: Dice Modifier (±1 to either die each turn)\n• 4 Pips: Ancient Map & +2 Energy\n• 5 Pips: Brass Telescope & +2 Energy\n• 6 Pips: Dice Modifier & +2 Energy',
+          'You kneel before an ancient violet crystalline altar. Roll the Fate D6 to receive an ancient blessing:\n• 1 Pip: Free Move 1 Hex (Step into any adjacent hex for 0 ⚡)\n• 2 Pips: Brass Telescope (Future towers reveal all 6 directions to map edge)\n• 3 Pips: Dice Modifier (±1 to either die each turn)\n• 4 Pips: Free Move 1 Hex & +2 Energy\n• 5 Pips: Brass Telescope & +2 Energy\n• 6 Pips: Dice Modifier & +2 Energy',
         type: 'shrine',
         coord: destination,
-        statBadge: 'Fate D6: Map, Telescope, Dice Modifier, +2 Energy',
+        statBadge: 'Fate D6: Free Move, Telescope, Dice Modifier, +2 Energy',
       });
       destTile.type = 'blank';
       return;
@@ -619,17 +647,16 @@ export default function App() {
     // 7. Clue Cairn Reached
     if (destTile.type === 'clue_cairn') {
       sounds.playBonus();
-      if (!destTile.activated) {
-        destTile.activated = true;
-        const bearing = getCompassDirection(destination, mapData.goalCoord);
-        destTile.cairnBearing = bearing;
-        setGoalClue(bearing);
+      destTile.activated = true;
+      if (!destTile.cairnBearing) {
+        destTile.cairnBearing = getCompassDirection(destination, mapData.goalCoord);
       }
-      setStatusMessage(`Ancient Cairn reached! Inscription: "The Lost Beacon lies to the ${destTile.cairnBearing}."`);
+      setGoalClue(destTile.cairnBearing);
+      setStatusMessage(`Ancient Cairn reached! Inscription: "The Lost Beacon lies to the ${destTile.cairnBearing}." Possible goal spaces updated!`);
       setEventPrompt({
-        title: 'Ancient Clue Cairn!',
+        title: 'Ancient Stone Cairn Reached',
         category: 'Discovery',
-        description: `You examine the mysterious stacked stones and decipher the ancient runic carvings: "The Lost Golden Beacon lies to the ${destTile.cairnBearing}."`,
+        description: `You examine the mysterious stacked stones and decipher the ancient runic carvings: "The Lost Golden Beacon lies to the ${destTile.cairnBearing}."\n\nPossible beacon spaces have been highlighted and narrowed down across the map!`,
         type: 'clue',
         coord: destination,
         statBadge: `Compass Bearing: ${destTile.cairnBearing}`,
@@ -670,34 +697,16 @@ export default function App() {
     executeMoveTo(pathPreview);
   };
 
-  // Toggle highlight for Ancient Map candidate hexes
-  const handleToggleMapHighlight = () => {
-    if (!goalQuadrant) return;
-    sounds.playClick();
-    setShowMapHighlight((prev) => {
-      const next = !prev;
-      setStatusMessage(
-        next
-          ? `Ancient Map: Candidate hexes in ${goalQuadrant.name} Quadrant (${goalQuadrant.code}) highlighted.`
-          : 'Ancient Map: Candidate hexes highlight hidden.'
-      );
-      return next;
-    });
-  };
-
   // Resolve Fate Event Roll from Shrine or Rift
   const handleResolveEvent = (rollResult?: number) => {
     if (!eventPrompt) return;
 
     if (eventPrompt.type === 'shrine' && rollResult) {
-      const q = getQuadrant(mapData.goalCoord);
-
       switch (rollResult) {
         case 1: {
           sounds.playBonus();
-          setGoalQuadrant(q);
-          setShowMapHighlight(true);
-          setStatusMessage(`Ancient Map revealed! Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}) — candidate hexes highlighted!`);
+          setFreeMoves((prev) => prev + 1);
+          setStatusMessage('Free Move blessing acquired! You can step into an adjacent hex for 0 Energy (FREE ⚡)!');
           break;
         }
         case 2: {
@@ -714,10 +723,9 @@ export default function App() {
         }
         case 4: {
           sounds.playBonus();
-          setGoalQuadrant(q);
-          setShowMapHighlight(true);
+          setFreeMoves((prev) => prev + 1);
           setEnergy((prev) => Math.min(prev + 2, MAX_ENERGY));
-          setStatusMessage(`Ancient Map & +2 Energy! Golden Beacon lies in the ${q.name} Quadrant (${q.bounds}) — candidate hexes highlighted!`);
+          setStatusMessage('Free Move blessing & +2 Energy! You can step into an adjacent hex for 0 ⚡, and restored +2 Energy!');
           break;
         }
         case 5: {
@@ -753,12 +761,16 @@ export default function App() {
     setEventPrompt(null);
   };
 
-  // Toggle Move 1 Mode (costs 1 Energy to step into any adjacent hex)
+  // Toggle Move 1 Mode (costs 1 Energy or 0 Energy if Free Move available)
   const handleToggleMoveOne = () => {
-    if (energy <= 0) return;
+    if (energy <= 0 && freeMoves <= 0) return;
     setIsMoveOne((prev) => !prev);
     if (!isMoveOne) {
-      setStatusMessage('Move 1 Active: Tap any directly adjacent hex (revealed or hidden) to step into it (-1 ⚡).');
+      setStatusMessage(
+        freeMoves > 0
+          ? `Free Move Active (${freeMoves} free move${freeMoves > 1 ? 's' : ''} available): Tap any directly adjacent hex to step into it for FREE (0 ⚡).`
+          : 'Move 1 Active: Tap any directly adjacent hex (revealed or hidden) to step into it (-1 ⚡).'
+      );
     } else {
       setStatusMessage('Move 1 cancelled.');
     }
@@ -778,14 +790,15 @@ export default function App() {
         return;
       }
 
-      if (energy <= 0) {
-        setStatusMessage('No energy left to move!');
+      if (energy <= 0 && freeMoves <= 0) {
+        setStatusMessage('No energy or free moves left!');
         return;
       }
 
       // Exit Move 1 mode and step immediately into target hex
+      const isFree = freeMoves > 0;
       setIsMoveOne(false);
-      executeMoveTo([coord]);
+      executeMoveTo([coord], isFree);
       return;
     }
 
@@ -948,8 +961,6 @@ export default function App() {
   }, [mapData.tiles]);
 
   const totalHexes = GRID_COLS * GRID_ROWS;
-  const goalTile = mapData.tiles.get(`${mapData.goalCoord.col},${mapData.goalCoord.row}`);
-  const goalFound = !!goalTile?.revealed;
 
   return (
     <div className="flex flex-col h-dvh w-full max-w-lg mx-auto bg-[#ded4bf] text-[#2b261f] select-none overflow-hidden font-mono border-x-2 border-[#2b261f] shadow-2xl relative">
@@ -962,11 +973,9 @@ export default function App() {
         totalHexes={totalHexes}
         goalFound={goalFound}
         goalClue={goalClue}
-        goalQuadrant={goalQuadrant}
+        freeMoves={freeMoves}
         hasTelescope={hasTelescope}
         hasDiceModifier={hasDiceModifier}
-        showMapHighlight={showMapHighlight}
-        onToggleMapHighlight={handleToggleMapHighlight}
         soundEnabled={soundEnabled}
         onToggleSound={handleToggleSound}
         onOpenRules={() => setShowRules(true)}
@@ -981,8 +990,7 @@ export default function App() {
           pathPreview={pathPreview}
           knownTowers={knownTowers}
           isMoveOne={isMoveOne}
-          goalQuadrant={goalQuadrant}
-          showMapHighlight={showMapHighlight}
+          candidateGoalCoords={candidateGoalCoords}
           deviationState={deviationState}
           onTileClick={handleTileClick}
           onPathTileClick={handlePathTileClick}
@@ -1001,6 +1009,7 @@ export default function App() {
         energy={energy}
         pathPreview={pathPreview}
         isMoveOne={isMoveOne}
+        freeMoves={freeMoves}
         hasDiceModifier={hasDiceModifier}
         statusMessage={statusMessage}
         onRollDice={handleRollDice}

@@ -9,8 +9,8 @@ import {
   DIRECTION_LABELS,
   tracePath,
   isCoordInQuadrant,
+  getCairnShortBearing,
 } from '../utils/hexMath';
-import { START_COORD } from '../utils/gameEngine';
 
 interface HexGridProps {
   tiles: Map<string, HexTile>;
@@ -20,6 +20,7 @@ interface HexGridProps {
   isMoveOne: boolean;
   goalQuadrant?: GoalQuadrant | null;
   showMapHighlight?: boolean;
+  candidateGoalCoords?: HexCoord[];
   deviationState: DeviationState;
   onTileClick: (coord: HexCoord) => void;
   onPathTileClick?: (coord: HexCoord, stepIndex: number) => void;
@@ -46,6 +47,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
   isMoveOne,
   goalQuadrant,
   showMapHighlight = true,
+  candidateGoalCoords,
   deviationState,
   onTileClick,
   onPathTileClick,
@@ -54,6 +56,34 @@ export const HexGrid: React.FC<HexGridProps> = ({
   canExecuteMove,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if the goal has been revealed
+  const isGoalRevealed = React.useMemo(() => {
+    for (const t of tiles.values()) {
+      if (t.type === 'goal' && t.revealed) return true;
+    }
+    return false;
+  }, [tiles]);
+
+  // Set of coordinates that could be the Golden Beacon based on revealed Cairns / Ancient Map
+  const candidateKeySet = React.useMemo(() => {
+    if (isGoalRevealed) {
+      return new Set<string>();
+    }
+    if (candidateGoalCoords && candidateGoalCoords.length > 0) {
+      return new Set(candidateGoalCoords.map((c) => `${c.col},${c.row}`));
+    }
+    if (goalQuadrant) {
+      const set = new Set<string>();
+      for (const t of tiles.values()) {
+        if (isCoordInQuadrant({ col: t.col, row: t.row }, goalQuadrant.code)) {
+          set.add(`${t.col},${t.row}`);
+        }
+      }
+      return set;
+    }
+    return new Set<string>();
+  }, [isGoalRevealed, candidateGoalCoords, goalQuadrant, tiles]);
 
   // Player pixel position
   const playerPixel = hexToPixel(playerCoord.col, playerCoord.row, HEX_RADIUS);
@@ -129,15 +159,12 @@ export const HexGrid: React.FC<HexGridProps> = ({
             knownTowers.some((t) => t.col === tile.col && t.row === tile.row) && !tile.revealed;
           const isMoveOneTarget = isMoveOne && isNeighborOfPlayer;
 
-          // Ancient Map Sector Candidate: tiles in map quadrant that could contain the Golden Beacon
-          const isInMapQuadrant = goalQuadrant
-            ? isCoordInQuadrant({ col: tile.col, row: tile.row }, goalQuadrant.code)
-            : false;
+          // Goal Candidate: unrevealed tiles that match active Cairns / Ancient Map (only before goal is revealed)
           const isPossibleGoalCandidate = Boolean(
+            !isGoalRevealed &&
             showMapHighlight &&
-            goalQuadrant &&
-            isInMapQuadrant &&
-            (!tile.revealed || tile.type === 'goal')
+            candidateKeySet.has(`${tile.col},${tile.row}`) &&
+            !tile.revealed
           );
 
           // Check if this hex is along the active movement line
@@ -265,14 +292,29 @@ export const HexGrid: React.FC<HexGridProps> = ({
                 />
               )}
 
-              {/* Ancient Map Candidate warm golden shimmer overlay */}
+              {/* Ancient Map / Cairn Goal Candidate warm golden shimmer overlay */}
               {isPossibleGoalCandidate && !tile.revealed && (
                 <polygon
                   points={points}
                   fill="#f59e0b"
-                  opacity="0.14"
+                  opacity="0.22"
                   pointerEvents="none"
                 />
+              )}
+
+              {/* Beacon Candidate target reticle marker */}
+              {isPossibleGoalCandidate && !tile.revealed && (
+                <g pointerEvents="none" transform={`translate(${x}, ${y})`}>
+                  <circle
+                    r="6.5"
+                    fill="none"
+                    stroke="#d97706"
+                    strokeWidth="1.2"
+                    strokeDasharray="2 2"
+                    opacity="0.85"
+                  />
+                  <circle r="2" fill="#d97706" opacity="0.9" />
+                </g>
               )}
 
               {/* Blank wilderness grass pattern for revealed blank tiles */}
@@ -482,19 +524,7 @@ export const HexGrid: React.FC<HexGridProps> = ({
                           tile.cairnBearing ? 'fill-[#15803d]' : 'fill-[#2b261f]'
                         }`}
                       >
-                        {tile.cairnBearing
-                          ? tile.cairnBearing
-                              .replace('North-East', '↗ NE')
-                              .replace('North-West', '↖ NW')
-                              .replace('South-East', '↘ SE')
-                              .replace('South-West', '↙ SW')
-                              .replace('directly North', '↑ N')
-                              .replace('due North', '↑ N')
-                              .replace('directly South', '↓ S')
-                              .replace('due South', '↓ S')
-                              .replace('East', '→ E')
-                              .replace('West', '← W')
-                          : 'CAIRN'}
+                        {getCairnShortBearing(tile.cairnBearing)}
                       </text>
                     </g>
                   )}
@@ -754,31 +784,6 @@ export const HexGrid: React.FC<HexGridProps> = ({
 
           {/* Center Golden Pip */}
           <circle cx="0" cy="0" r="3.5" fill="#f59e0b" stroke="#1c1917" strokeWidth="1" />
-
-          {/* Floating 'YOU ARE HERE' Flag Banner on Top */}
-          <g transform="translate(0, -22)">
-            {/* Pointer notch */}
-            <polygon points="0,5 -4,0 4,0" fill="#1c1917" />
-            <rect
-              x="-30"
-              y="-10"
-              width="60"
-              height="14"
-              rx="4"
-              fill="#1c1917"
-              stroke="#ffd166"
-              strokeWidth="1.2"
-            />
-            <text
-              textAnchor="middle"
-              y="0"
-              className="text-[8.5px] font-mono font-black fill-[#ffd166] tracking-tight"
-            >
-              {playerCoord.col === START_COORD.col && playerCoord.row === START_COORD.row
-                ? '📍 YOU (START)'
-                : '📍 YOU'}
-            </text>
-          </g>
         </g>
       </svg>
     </div>

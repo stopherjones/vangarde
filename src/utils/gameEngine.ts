@@ -1,7 +1,7 @@
 import { HexTile, HexCoord, HexType } from '../types';
-import { GRID_COLS, GRID_ROWS, hexDistance } from './hexMath';
+import { GRID_COLS, GRID_ROWS, hexDistance, getCompassDirection } from './hexMath';
 
-export const START_COORD: HexCoord = { col: 5, row: 11 };
+export const START_COORD: HexCoord = { col: 5, row: 5 };
 
 export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoord; towerCoords: HexCoord[] } {
   const tiles = new Map<string, HexTile>();
@@ -13,11 +13,11 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
     }
   }
 
-  // Pick Goal: Row 0 to 3, distance >= 8 from start
+  // Pick Goal: anywhere on the map at random, but not within 2 hexes of the start tile
   const potentialGoals = allCoords.filter(
-    (coord) => coord.row <= 3 && hexDistance(coord, START_COORD) >= 8
+    (coord) => hexDistance(coord, START_COORD) > 2
   );
-  const goalCoord = potentialGoals[Math.floor(Math.random() * potentialGoals.length)] || { col: 5, row: 1 };
+  const goalCoord = potentialGoals[Math.floor(Math.random() * potentialGoals.length)] || { col: 0, row: 0 };
 
   // Helper to pick non-overlapping random coords
   const occupied = new Set<string>();
@@ -98,6 +98,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
     let type: HexType = 'blank';
     let value = 0;
     let flavorText = 'Uncharted Wilderness';
+    let cairnBearing: string | undefined = undefined;
 
     if (c.col === START_COORD.col && c.row === START_COORD.row) {
       type = 'start';
@@ -133,7 +134,8 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
       flavorText = 'Arcane Bramble Rift: Roll D6 (Odd = -2 Energy, Even = Safe)';
     } else if (clueCoords.some((x) => x.col === c.col && x.row === c.row)) {
       type = 'clue_cairn';
-      flavorText = 'Ancient Cairn: Whispers the bearing of the Goal';
+      cairnBearing = getCompassDirection(c, goalCoord);
+      flavorText = `Ancient Cairn: Whispers that the Golden Beacon lies to the ${cairnBearing}`;
     }
 
     const isStart = c.col === START_COORD.col && c.row === START_COORD.row;
@@ -147,6 +149,7 @@ export function generateMap(): { tiles: Map<string, HexTile>; goalCoord: HexCoor
       visited: isStart,
       value,
       flavorText,
+      cairnBearing,
     });
   }
 
