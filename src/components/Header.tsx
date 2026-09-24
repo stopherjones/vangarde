@@ -16,6 +16,9 @@ interface HeaderProps {
   onToggleSound: () => void;
   onOpenRules: () => void;
   onNewGame: () => void;
+  level?: 1 | 2;
+  level2CardsRemaining?: number;
+  level2TargetFound?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,6 +36,9 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleSound,
   onOpenRules,
   onNewGame,
+  level = 1,
+  level2CardsRemaining = 13,
+  level2TargetFound = false,
 }) => {
   const exploredPct = Math.round((revealedCount / totalHexes) * 100);
   const isLowEnergy = energy <= 5;
@@ -53,11 +59,20 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center Title + Active Boons Badges */}
         <div className="flex items-center gap-1.5 font-bold text-xs text-[#2b261f] uppercase font-mono tracking-tight">
           <div className="flex items-center gap-1">
-            <Compass className="w-3.5 h-3.5 text-[#2d6a4f]" />
-            <span>Hex Crawl</span>
+            {level === 2 ? (
+              <>
+                <span className="text-rose-600 text-sm leading-none">♥</span>
+                <span>Level 2: Tunnels</span>
+              </>
+            ) : (
+              <>
+                <Compass className="w-3.5 h-3.5 text-[#2d6a4f]" />
+                <span>Level 1: Hex Crawl</span>
+              </>
+            )}
           </div>
 
-          {(freeMoves > 0 || hasTelescope || hasDiceModifier) && (
+          {level === 1 && (freeMoves > 0 || hasTelescope || hasDiceModifier) && (
             <div className="flex items-center gap-1 ml-1 text-[10px] normal-case">
               {freeMoves > 0 && (
                 <span
@@ -132,39 +147,69 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
         </div>
 
-        {/* Explored Percentage */}
-        <div className="flex items-center justify-center gap-1 px-1">
-          <span className="text-[9px] uppercase font-mono text-[#5c5446]">Seen:</span>
+        {/* Explored Percentage / Deck in Level 2 */}
+        <div
+          className="flex items-center justify-center gap-1 px-1"
+          title={level === 2 ? 'Delve cards remaining in deck' : 'Hexes explored'}
+        >
+          <span className="text-[9px] uppercase font-mono text-[#5c5446]">
+            {level === 2 ? 'Deck:' : 'Seen:'}
+          </span>
           <span className="text-sm font-black font-mono text-[#2b261f]">
-            {exploredPct}%
+            {level === 2 ? `${level2CardsRemaining}/13` : `${exploredPct}%`}
           </span>
         </div>
 
-        {/* Beacon / Goal Status */}
-        <div className="flex items-center justify-center gap-1 px-1">
-          <span className="text-[9px] uppercase font-mono text-[#5c5446]">Goal:</span>
-          <span
-            className={`text-[11px] font-black font-mono uppercase truncate ${
-              goalFound
-                ? 'text-[#2d6a4f]'
-                : goalClue
-                ? 'text-[#b45309]'
-                : 'text-[#8a7f6f]'
-            }`}
-            title={
-              goalFound
-                ? 'Secret Tunnel Entrance Found!'
-                : goalClue
-                ? `Secret Tunnel lies: ${goalClue}`
-                : 'Secret Tunnel Hidden'
-            }
-          >
-            {goalFound
-              ? '🌟 Found'
+        {/* Beacon / Goal Status in Level 1; Target Ace in Level 2 */}
+        <div
+          className="flex items-center justify-center gap-1 px-1"
+          title={
+            level === 2
+              ? level2TargetFound
+                ? 'Ace of Hearts Exit Revealed!'
+                : 'Ace of Hearts lurking in Deck!'
+              : goalFound
+              ? 'Secret Tunnel Entrance Found!'
               : goalClue
-              ? `🧭 ${goalClue}`
-              : '❓ Hidden'}
+              ? `Secret Tunnel lies: ${goalClue}`
+              : 'Secret Tunnel Hidden'
+          }
+        >
+          <span className="text-[9px] uppercase font-mono text-[#5c5446]">
+            {level === 2 ? 'Exit:' : 'Goal:'}
           </span>
+          {level === 2 ? (
+            <span
+              className={`text-[11px] font-black font-mono uppercase truncate ${
+                level2TargetFound ? 'text-[#2d6a4f]' : 'text-[#b45309]'
+              }`}
+            >
+              {level2TargetFound ? '🌟 Exit A♥' : '♥ In Deck'}
+            </span>
+          ) : (
+            <span
+              className={`text-[11px] font-black font-mono uppercase truncate ${
+                goalFound
+                  ? 'text-[#2d6a4f]'
+                  : goalClue
+                  ? 'text-[#b45309]'
+                  : 'text-[#8a7f6f]'
+              }`}
+              title={
+                goalFound
+                  ? 'Secret Tunnel Entrance Found!'
+                  : goalClue
+                  ? `Secret Tunnel lies: ${goalClue}`
+                  : 'Secret Tunnel Hidden'
+              }
+            >
+              {goalFound
+                ? '🌟 Found'
+                : goalClue
+                ? `🧭 ${goalClue}`
+                : '❓ Hidden'}
+            </span>
+          )}
         </div>
       </div>
     </header>

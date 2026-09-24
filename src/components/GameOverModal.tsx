@@ -11,6 +11,9 @@ interface GameOverModalProps {
   totalTowers: number;
   onRestart: () => void;
   onReviewMap?: () => void;
+  level?: 1 | 2;
+  cardsDrawn?: number;
+  tunnelsCarved?: number;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -23,6 +26,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   totalTowers,
   onRestart,
   onReviewMap,
+  level = 1,
+  cardsDrawn = 0,
+  tunnelsCarved = 0,
 }) => {
   const exploredPct = Math.round((revealedCount / totalHexes) * 100);
 
@@ -36,13 +42,25 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           }`}
         >
           {won ? <Trophy className="w-5 h-5 text-yellow-300" /> : <Skull className="w-5 h-5" />}
-          <span>{won ? 'SECRET TUNNEL FOUND!' : 'EXPEDITION EXHAUSTED'}</span>
+          <span>
+            {level === 2
+              ? won
+                ? 'SUBTERRANEAN ESCAPE!'
+                : 'LOST IN THE TUNNELS'
+              : won
+              ? 'SECRET TUNNEL FOUND!'
+              : 'EXPEDITION EXHAUSTED'}
+          </span>
         </div>
 
         {/* Details */}
         <div className="p-5 space-y-4 font-mono text-xs text-[#2b261f]">
           <p className="text-xs leading-relaxed">
-            {won
+            {level === 2
+              ? won
+                ? 'Astounding subterranean navigation! You uncovered the Ace of Hearts, found the ancient escape stair, and returned safely to the world above!'
+                : 'Your energy was completely exhausted in the pitch-black tunnels. The subterranean labyrinth claims another intrepid delve.'
+              : won
               ? 'Splendid cartography! You reached the Secret Tunnel Entrance and secured your escape before your supplies ran dry.'
               : 'Your energy was completely depleted before locating the Secret Tunnel Entrance. The fog of war claims this voyage.'}
           </p>
@@ -50,11 +68,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           {/* Expedition Scorecard */}
           <div className="bg-[#ede4d3] p-3 rounded-lg border border-[#2b261f]/30 space-y-2 text-left">
             <div className="text-[11px] font-bold uppercase text-[#786e5e] border-b border-[#2b261f]/20 pb-1">
-              Expedition Ledger
+              {level === 2 ? 'Subterranean Delve Ledger' : 'Expedition Ledger'}
             </div>
             <div className="flex justify-between items-center">
               <span className="flex items-center gap-1.5">
-                <Footprints className="w-3.5 h-3.5 text-[#2d6a4f]" /> Total Turns:
+                <Footprints className="w-3.5 h-3.5 text-[#2d6a4f]" /> Total Steps:
               </span>
               <span className="font-bold">{turns}</span>
             </div>
@@ -64,22 +82,42 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               </span>
               <span className="font-bold">{energyLeft}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="flex items-center gap-1.5">
-                <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" /> Wilderness Charted:
-              </span>
-              <span className="font-bold">
-                {revealedCount} / {totalHexes} ({exploredPct}%)
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="flex items-center gap-1.5">
-                <Castle className="w-3.5 h-3.5 text-[#78644f]" /> Watchtowers Linked:
-              </span>
-              <span className="font-bold">
-                {towersFound} / {totalTowers}
-              </span>
-            </div>
+
+            {level === 2 ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1.5 text-rose-700">
+                    ♥ Cards Drawn:
+                  </span>
+                  <span className="font-bold">{cardsDrawn} / 13</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1.5 text-[#78644f]">
+                    <Eye className="w-3.5 h-3.5" /> Corridors Lit:
+                  </span>
+                  <span className="font-bold">{tunnelsCarved}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" /> Wilderness Charted:
+                  </span>
+                  <span className="font-bold">
+                    {revealedCount} / {totalHexes} ({exploredPct}%)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1.5">
+                    <Castle className="w-3.5 h-3.5 text-[#78644f]" /> Watchtowers Linked:
+                  </span>
+                  <span className="font-bold">
+                    {towersFound} / {totalTowers}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -98,7 +136,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                 className="w-full py-2 px-3 bg-[#e2d5bd] hover:bg-[#d8c8ab] text-[#2b261f] font-mono font-bold text-xs uppercase rounded-lg border-2 border-[#2b261f] flex items-center justify-center gap-2 cursor-pointer transition-colors"
               >
                 <Eye className="w-3.5 h-3.5 text-[#2d6a4f]" />
-                <span>Review Map & Secret Tunnel</span>
+                <span>{level === 2 ? 'Review Underground Map' : 'Review Map & Secret Tunnel'}</span>
               </button>
             )}
           </div>

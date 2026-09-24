@@ -7,6 +7,7 @@ import {
   DeviationState,
   EventPrompt,
   HexType,
+  GameLevel,
 } from './types';
 import {
   GRID_COLS,
@@ -15,23 +16,52 @@ import {
   tracePath,
   traceSplitPath,
   getAllNeighbors,
+  getNeighbor,
+  getOrganicNeighbor,
   getCompassDirection,
+  getAdjacentBearing,
   getTowerRevealedCoords,
   getPossibleGoalCoords,
 } from './utils/hexMath';
 import { generateMap, START_COORD } from './utils/gameEngine';
 import { sounds } from './utils/sound';
+import {
+  TunnelMap,
+  createTunnelMap,
+  carveCorridorsForTile,
+  getLiveExits,
+  getDestinationThroughHallway,
+  TUNNEL_START_COORD,
+} from './utils/tunnelEngine';
+import { createShuffledHeartsDeck } from './utils/delveDeck';
 import { Header } from './components/Header';
 import { HexGrid } from './components/HexGrid';
+import { TunnelGrid } from './components/TunnelGrid';
+import { CardDisplay } from './components/CardDisplay';
 import { ControlPanel } from './components/ControlPanel';
 import { RulesModal } from './components/RulesModal';
 import { EventModal } from './components/EventModal';
 import { GameOverModal } from './components/GameOverModal';
+import { LevelTransitionModal } from './components/LevelTransitionModal';
 
 const MAX_ENERGY = 30;
 
 export default function App() {
-  // Game Map State
+  // Level State
+  const [currentLevel, setCurrentLevel] = useState<GameLevel>(1);
+  const [showLevelTransitionModal, setShowLevelTransitionModal] = useState<boolean>(false);
+  const [level1Turns, setLevel1Turns] = useState<number>(1);
+
+  // Level 2 Subterranean Tunnel State
+  const [tunnelMap, setTunnelMap] = useState<TunnelMap>(() =>
+    createTunnelMap(createShuffledHeartsDeck())
+  );
+  const [currentTunnelHeading, setCurrentTunnelHeading] = useState<DirectionIndex>(2);
+  const [level2Steps, setLevel2Steps] = useState<number>(0);
+  const [level2CardsDrawn, setLevel2CardsDrawn] = useState<number>(0);
+  const [level2TargetFound, setLevel2TargetFound] = useState<boolean>(false);
+
+  // Game Map State (Level 1)
   const [mapData, setMapData] = useState(() => generateMap());
   const [playerCoord, setPlayerCoord] = useState<HexCoord>(START_COORD);
   const [knownTowers, setKnownTowers] = useState<HexCoord[]>([]);
@@ -172,6 +202,15 @@ export default function App() {
     }
     isPendingExhaustionRef.current = false;
     setReviewingMap(false);
+
+    setCurrentLevel(1);
+    setShowLevelTransitionModal(false);
+    setLevel1Turns(1);
+    setTunnelMap(createTunnelMap(createShuffledHeartsDeck()));
+    setCurrentTunnelHeading(2);
+    setLevel2Steps(0);
+    setLevel2CardsDrawn(0);
+    setLevel2TargetFound(false);
 
     const newMap = generateMap();
     setMapData(newMap);
@@ -602,12 +641,13 @@ export default function App() {
     // Check Destination interactions (hazards, shrines, caches, and towers only activate when landed on)
     if (!destTile) return;
 
-    // 1. Goal Hex Reached
+    // 1. Goal Hex Reached - Level 1 Complete! Secret Tunnel Entrance Located
     if (destTile.type === 'goal') {
       sounds.playVictory();
-      setIsWon(true);
+      setLevel1Turns(turn);
+      setShowLevelTransitionModal(true);
       isPendingExhaustionRef.current = false;
-      setStatusMessage('VICTORY! You have reached the Secret Tunnel Entrance!');
+      setStatusMessage('SECRET TUNNEL LOCATED! Prepare to descend into Level 2 Underground Tunnels!');
       return;
     }
 
@@ -868,6 +908,27 @@ export default function App() {
         sounds.playBonus();
         setStatusMessage('Evaded the thorny rift safely without penalty!');
       }
+    } else if (eventPrompt.type === 'tunnel_trap' && rollResult) {
+      if (rollResult % 2 !== 0) {
+        sounds.playHazard();
+        setEnergy((prev) => {
+          const next = Math.max(0, prev - 2);
+          if (next <= 0) {
+            sounds.playHazard();
+            setIsLost(true);
+            setStatusMessage('Trap damage exhausted your remaining energy! Underground delve lost.');
+          }
+          return next;
+        });
+        setStatusMessage(`Trap sprang! Rolled ${rollResult} (Odd) - lost -2 Energy. Chamber cleared! Draw a new Delve Card to reveal exits.`);
+      } else {
+        sounds.playBonus();
+        setStatusMessage(`Trap evaded! Rolled ${rollResult} (Even) - sprang aside without harm! Chamber cleared! Draw a new Delve Card to reveal exits.`);
+      }
+    } else if (eventPrompt.type === 'tunnel_treasure' && rollResult) {
+      sounds.playBonus();
+      setEnergy((prev) => Math.min(prev + rollResult, MAX_ENERGY));
+      setStatusMessage(`Ancient Vault opened! Rolled ${rollResult} - restored +${rollResult} Energy. Chamber cleared! Draw a new Delve Card to reveal exits.`);
     }
 
     const wasPending = isPendingExhaustionRef.current;
@@ -1071,6 +1132,308 @@ export default function App() {
     }
   };
 
+  // --- LEVEL 2: UNDERGROUND TUNNELS LOGIC ---
+
+  // Descend to Level 2
+  const handleDescendToLevel2 = () => {
+    sounds.playBonus();
+    setCurrentLevel(2);
+    setShowLevelTransitionModal(false);
+    setReviewingMap(false);
+    setIsWon(false);
+    setIsLost(false);
+    setDiceState((prev) => ({ ...prev, rolled: false }));
+
+    const newTunnelDeck = createShuffledHeartsDeck();
+    const newTunnelMap = createTunnelMap(newTunnelDeck);
+
+    // Initial state: Adventurer begins at starting chamber (5, 11), prompted to draw first delve card
+    setTunnelMap(newTunnelMap);
+    setCurrentTunnelHeading(2);
+    setLevel2Steps(0);
+    setLevel2CardsDrawn(0);
+    setLevel2TargetFound(false);
+    setStatusMessage(
+      'Descended into Level 2: The Underground Tunnels! Draw a Hearts Delve Card to survey entry chamber (0, 0) and carve corridor exits.'
+    );
+  };
+
+  // Interactive exits available from current player tile in Level 2
+  const tunnelInteractiveExits = useMemo(() => {
+    if (currentLevel !== 2 || isWon || isLost) return [];
+    const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
+    const currentTile = tunnelMap.tiles.get(currentKey);
+    if (!currentTile) return [];
+
+    const exits: HexCoord[] = [];
+    const visitedExitKeys = new Set<string>();
+
+    for (const dir of currentTile.connections) {
+      const neighbor = getOrganicNeighbor(tunnelMap.playerCoord, dir);
+      const neighborKey = `${neighbor.col},${neighbor.row}`;
+      const neighborTile = tunnelMap.tiles.get(neighborKey);
+      if (!neighborTile || neighborTile.status !== 'lit') continue;
+
+      // If neighbor is an intermediate hallway, follow it to the chamber!
+      const dest = neighborTile.isHallway
+        ? getDestinationThroughHallway(tunnelMap.playerCoord, neighbor, tunnelMap.tiles)
+        : neighbor;
+
+      const destKey = `${dest.col},${dest.row}`;
+      const destTile = tunnelMap.tiles.get(destKey);
+      if (destTile && destTile.status === 'lit' && !visitedExitKeys.has(destKey)) {
+        visitedExitKeys.add(destKey);
+        exits.push(dest);
+      }
+    }
+    return exits;
+  }, [currentLevel, tunnelMap.playerCoord, tunnelMap.tiles, isWon, isLost]);
+
+  // Count of illuminated / explored tunnel tiles
+  const litTunnelCount = useMemo(() => {
+    let count = 0;
+    for (const t of tunnelMap.tiles.values()) {
+      if (t.status === 'lit') count++;
+    }
+    return count;
+  }, [tunnelMap.tiles]);
+
+  // Click on a tile in Level 2 (step into lit exit or dead-end retrace)
+  const handleTunnelTileClick = (targetCoord: HexCoord) => {
+    if (currentLevel !== 2 || isWon || isLost) return;
+
+    // If user clicked directly on an intermediate hallway tile, resolve it to the destination chamber
+    let resolvedTarget = targetCoord;
+    const clickedTile = tunnelMap.tiles.get(`${targetCoord.col},${targetCoord.row}`);
+    if (clickedTile && clickedTile.isHallway) {
+      resolvedTarget = getDestinationThroughHallway(tunnelMap.playerCoord, targetCoord, tunnelMap.tiles);
+    }
+
+    // Check if target is one of the interactive exits
+    const isExit = tunnelInteractiveExits.some(
+      (e) => e.col === resolvedTarget.col && e.row === resolvedTarget.row
+    );
+    if (!isExit) {
+      if (
+        resolvedTarget.col === tunnelMap.playerCoord.col &&
+        resolvedTarget.row === tunnelMap.playerCoord.row
+      ) {
+        setStatusMessage(
+          'Current adventurer position. Step into an illuminated corridor exit (-1 ⚡).'
+        );
+      } else {
+        setStatusMessage('That corridor is not accessible from your current chamber!');
+      }
+      return;
+    }
+
+    // Step costs 1 Energy
+    if (energy <= 0) {
+      sounds.playHazard();
+      setIsLost(true);
+      setStatusMessage('Energy exhausted in the subterranean dark! The underground labyrinth claims another delve.');
+      return;
+    }
+
+    const nextEnergy = Math.max(0, energy - 1);
+    setEnergy(nextEnergy);
+
+    // Compute heading direction from current playerCoord to resolvedTarget and find any intermediate hallway
+    let moveDir: DirectionIndex = 2;
+    let intermediateCoord: HexCoord | null = null;
+    for (let d = 1; d <= 6; d++) {
+      const step1 = getOrganicNeighbor(tunnelMap.playerCoord, d as DirectionIndex);
+      if (step1.col === resolvedTarget.col && step1.row === resolvedTarget.row) {
+        moveDir = d as DirectionIndex;
+        break;
+      }
+      const step2 = getOrganicNeighbor(step1, d as DirectionIndex);
+      if (step2.col === resolvedTarget.col && step2.row === resolvedTarget.row) {
+        moveDir = d as DirectionIndex;
+        intermediateCoord = step1;
+        break;
+      }
+    }
+    setCurrentTunnelHeading(moveDir);
+
+    const updatedTiles = new Map(tunnelMap.tiles);
+    if (intermediateCoord) {
+      const interKey = `${intermediateCoord.col},${intermediateCoord.row}`;
+      const interTile = updatedTiles.get(interKey);
+      if (interTile) interTile.visited = true;
+    }
+
+    const targetKey = `${resolvedTarget.col},${resolvedTarget.row}`;
+    const targetTile = updatedTiles.get(targetKey);
+    if (!targetTile) return;
+
+    targetTile.visited = true;
+    sounds.playStep();
+    setLevel2Steps((prev) => prev + 1);
+
+    // Check if target tile is the grand exit (Ace of Hearts)
+    if (targetTile.isTarget) {
+      sounds.playVictory();
+      setIsWon(true);
+      setStatusMessage(
+        'VICTORY! You stepped into the Ace of Hearts grand exit archway and escaped to the surface!'
+      );
+      setTunnelMap((prev) => ({
+        ...prev,
+        tiles: updatedTiles,
+        playerCoord: resolvedTarget,
+        activeCard: targetTile.card || prev.activeCard,
+      }));
+      return;
+    }
+
+    // Check if target tile already has carved exits or is a dead end (revisiting / retracing steps)
+    if (targetTile.exitsCarved || targetTile.isDeadEnd) {
+      if (targetTile.isDeadEnd) {
+        setStatusMessage(
+          'Dead end reached! Cave-in blocks forward passage. Retrace steps along carved corridors.'
+        );
+      } else {
+        setStatusMessage(
+          'Retracing steps through previously surveyed corridor.'
+        );
+      }
+
+      if (nextEnergy <= 0) {
+        sounds.playHazard();
+        setIsLost(true);
+        setStatusMessage('Energy exhausted in the dark corridors! Delve lost.');
+      }
+
+      setTunnelMap((prev) => ({
+        ...prev,
+        tiles: updatedTiles,
+        playerCoord: resolvedTarget,
+        activeCard: targetTile.card || prev.activeCard,
+      }));
+      return;
+    }
+
+    // Target tile is an unexplored, uncarved chamber:
+    // Prompt the player to draw a Hearts card to survey exits!
+    if (nextEnergy <= 0) {
+      sounds.playHazard();
+      setIsLost(true);
+      setStatusMessage('Energy exhausted entering the dark chamber! Delve lost.');
+    } else {
+      setStatusMessage(
+        `Entered unexplored chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Draw a Hearts Delve Card to survey exits ahead!`
+      );
+    }
+
+    setTunnelMap((prev) => ({
+      ...prev,
+      tiles: updatedTiles,
+      playerCoord: resolvedTarget,
+      activeCard: targetTile.card || null,
+    }));
+  };
+
+  // Manual draw card handler for Level 2 (when player is prompted to draw for uncarved chamber)
+  const handleTunnelDrawCard = () => {
+    if (
+      currentLevel !== 2 ||
+      isWon ||
+      isLost ||
+      Boolean(eventPrompt) ||
+      tunnelMap.deck.length === 0
+    )
+      return;
+    const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
+    const currentTile = tunnelMap.tiles.get(currentKey);
+    if (!currentTile || currentTile.exitsCarved || currentTile.isDeadEnd) return;
+
+    // Dead end rule: "Update the dead end logic so that they can only be drawn if there is more than 1 currently live exit"
+    const liveExits = getLiveExits(tunnelMap.tiles);
+    const canDrawDeadEnd = liveExits.length > 1;
+
+    const updatedDeck = [...tunnelMap.deck];
+
+    // Determine which card to draw from the deck:
+    let cardIndexToDraw = 0;
+    const candidateCard = updatedDeck[0];
+    if ((candidateCard.rank === '5' || candidateCard.rank === '7') && !canDrawDeadEnd) {
+      // Must not draw a dead end if only 1 live exit exists: swap with next non-dead-end card
+      const nonDeadEndIdx = updatedDeck.findIndex((c) => c.rank !== '5' && c.rank !== '7');
+      if (nonDeadEndIdx !== -1) {
+        cardIndexToDraw = nonDeadEndIdx;
+      }
+    }
+
+    const [nextCard] = updatedDeck.splice(cardIndexToDraw, 1);
+    if (!nextCard) return;
+
+    sounds.playBonus();
+    const drawnCount = level2CardsDrawn + 1;
+    setLevel2CardsDrawn(drawnCount);
+
+    const updatedTiles = new Map(tunnelMap.tiles);
+    const carveResult = carveCorridorsForTile(
+      updatedTiles,
+      tunnelMap.playerCoord,
+      nextCard,
+      currentTunnelHeading
+    );
+
+    if (nextCard.effect === 'target') {
+      setLevel2TargetFound(true);
+      setStatusMessage(
+        `THE ACE OF HEARTS! The grand subterranean exit archway is revealed at (${carveResult.targetCoord?.col ?? '?'}, ${carveResult.targetCoord?.row ?? '?'})! Move into the archway to escape and win!`
+      );
+    } else if (nextCard.effect === 'trap') {
+      sounds.playHazard();
+      setEventPrompt({
+        title: 'Subterranean Trap Chamber! (J♥)',
+        category: 'Hazard',
+        description:
+          'A pressure plate clicks! Spring-loaded scythe blades slice from the dark walls. Roll the Fate Die: Odd = -2 Energy, Even = Safe dodge! After resolving, draw a new card for exits.',
+        type: 'tunnel_trap',
+        coord: tunnelMap.playerCoord,
+        statBadge: 'J♥ Trap: Odd = -2 ⚡, Even = Safe',
+      });
+      setStatusMessage(
+        'Drawn Jack of Hearts — Trap Chamber! Dodge the blades, then draw for exits!'
+      );
+    } else if (nextCard.effect === 'treasure') {
+      sounds.playBonus();
+      setEventPrompt({
+        title: `Ancient Treasure Vault! (${nextCard.rank}♥)`,
+        category: 'Discovery',
+        description:
+          'You uncover an ancient stone strongbox glowing with subterranean mana! Roll the Fate Die to restore 1 to 6 Energy. After resolving, draw a new card for exits.',
+        type: 'tunnel_treasure',
+        coord: tunnelMap.playerCoord,
+        statBadge: `${nextCard.rank}♥ Vault: Roll D6 for +1 to +6 ⚡`,
+      });
+      setStatusMessage(
+        `Drawn ${nextCard.name} — Treasure Vault discovered! Collect reward, then draw for exits!`
+      );
+    } else if (nextCard.effect === 'dead_end') {
+      sounds.playHazard();
+      setStatusMessage(
+        `Drawn ${nextCard.name} — Dead end cave-in! Rockfall blocks the passage ahead. Retrace steps back along the corridor.`
+      );
+    } else {
+      setStatusMessage(
+        `Drawn ${nextCard.name}: ${carveResult.openedCoords.length} corridor exits carved!`
+      );
+    }
+
+    setTunnelMap((prev) => ({
+      ...prev,
+      tiles: updatedTiles,
+      deck: updatedDeck,
+      discard: [...prev.discard, nextCard],
+      activeCard: nextCard,
+      cardsDrawnCount: drawnCount,
+    }));
+  };
+
   // Derived stats
   const revealedCount = useMemo(() => {
     let count = 0;
@@ -1082,13 +1445,27 @@ export default function App() {
 
   const totalHexes = GRID_COLS * GRID_ROWS;
 
+  // Check if player in Level 2 can manually draw
+  const canDrawTunnelCard = useMemo(() => {
+    if (currentLevel !== 2 || isWon || isLost || Boolean(eventPrompt)) return false;
+    const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
+    const tile = tunnelMap.tiles.get(currentKey);
+    return Boolean(
+      tile &&
+      !tile.exitsCarved &&
+      !tile.isDeadEnd &&
+      !tile.isTarget &&
+      tunnelMap.deck.length > 0
+    );
+  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt]);
+
   return (
     <div className="flex flex-col h-dvh w-full max-w-lg mx-auto bg-[#ded4bf] text-[#2b261f] select-none overflow-hidden font-mono border-x-2 border-[#2b261f] shadow-2xl relative">
       {/* 1. Fixed Header (Scorecard stats bar) */}
       <Header
         energy={energy}
         maxEnergy={MAX_ENERGY}
-        turn={turn}
+        turn={currentLevel === 2 ? level2Steps : turn}
         revealedCount={revealedCount}
         totalHexes={totalHexes}
         goalFound={goalFound}
@@ -1100,57 +1477,128 @@ export default function App() {
         onToggleSound={handleToggleSound}
         onOpenRules={() => setShowRules(true)}
         onNewGame={handleNewGame}
+        level={currentLevel}
+        level2CardsRemaining={tunnelMap.deck.length}
+        level2TargetFound={level2TargetFound}
       />
 
       {/* 2. Interactive SVG Hex Grid (Middle Map Area) */}
       <main className="flex-1 min-h-0 relative">
-        <HexGrid
-          tiles={mapData.tiles}
-          playerCoord={playerCoord}
-          pathPreview={pathPreview}
-          knownTowers={knownTowers}
-          isMoveOne={isMoveOne}
-          candidateGoalCoords={candidateGoalCoords}
-          deviationState={deviationState}
-          onTileClick={handleTileClick}
-          onPathTileClick={handlePathTileClick}
-          onSelectDeviationBranch={handleSelectDeviationBranch}
-          onExecuteMove={handleExecuteMove}
-          canExecuteMove={diceState.rolled && pathPreview.length > 0 && energy > 0}
-        />
+        {currentLevel === 1 ? (
+          <HexGrid
+            tiles={mapData.tiles}
+            playerCoord={playerCoord}
+            pathPreview={pathPreview}
+            knownTowers={knownTowers}
+            isMoveOne={isMoveOne}
+            candidateGoalCoords={candidateGoalCoords}
+            deviationState={deviationState}
+            onTileClick={handleTileClick}
+            onPathTileClick={handlePathTileClick}
+            onSelectDeviationBranch={handleSelectDeviationBranch}
+            onExecuteMove={handleExecuteMove}
+            canExecuteMove={diceState.rolled && pathPreview.length > 0 && energy > 0}
+          />
+        ) : (
+          <TunnelGrid
+            tiles={tunnelMap.tiles}
+            playerCoord={tunnelMap.playerCoord}
+            onTileClick={handleTunnelTileClick}
+            interactiveExits={tunnelInteractiveExits}
+            energy={energy}
+          />
+        )}
       </main>
 
-      {/* 3. Fixed Footer Control Panel (Dice Selection & Info Ticker) */}
-      <ControlPanel
-        diceState={diceState}
-        deviationState={deviationState}
-        selectedDirection={selectedDirection}
-        effectiveDistance={diceState.assignedDistance}
-        energy={energy}
-        pathPreview={pathPreview}
-        isMoveOne={isMoveOne}
-        freeMoves={freeMoves}
-        hasDiceModifier={hasDiceModifier}
-        statusMessage={statusMessage}
-        onRollDice={handleRollDice}
-        onSelectDirectionDie={handleSelectDirectionDie}
-        onToggleMoveOne={handleToggleMoveOne}
-        onExecuteMove={handleExecuteMove}
-        onResetDeviation={handleResetDeviation}
-        onModifyDie={handleModifyDie}
-      />
+      {/* 3. Fixed Footer Control Panel */}
+      {currentLevel === 1 ? (
+        <ControlPanel
+          diceState={diceState}
+          deviationState={deviationState}
+          selectedDirection={selectedDirection}
+          effectiveDistance={diceState.assignedDistance}
+          energy={energy}
+          pathPreview={pathPreview}
+          isMoveOne={isMoveOne}
+          freeMoves={freeMoves}
+          hasDiceModifier={hasDiceModifier}
+          statusMessage={statusMessage}
+          onRollDice={handleRollDice}
+          onSelectDirectionDie={handleSelectDirectionDie}
+          onToggleMoveOne={handleToggleMoveOne}
+          onExecuteMove={handleExecuteMove}
+          onResetDeviation={handleResetDeviation}
+          onModifyDie={handleModifyDie}
+        />
+      ) : (
+        <div className="bg-[#1c1917] border-t-2 border-[#2b261f] p-2 text-stone-200 space-y-2 select-none flex-shrink-0">
+          {/* Card Display with Heart theme and Deck Tracker */}
+          <CardDisplay
+            card={tunnelMap.activeCard}
+            deckCount={tunnelMap.deck.length}
+            discardCards={tunnelMap.discard}
+            onDrawCard={handleTunnelDrawCard}
+            canDraw={canDrawTunnelCard}
+            activeExitDirs={
+              tunnelMap.tiles.get(
+                `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`
+              )?.carvedExitDirs
+            }
+          />
+
+          {/* Available Exits Quick Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+            <span className="text-[10px] uppercase font-bold text-stone-400 flex-shrink-0">
+              Exits:
+            </span>
+            {tunnelInteractiveExits.length > 0 ? (
+              tunnelInteractiveExits.map((exitCoord, idx) => {
+                // Find precise hex direction
+                const bearing = getAdjacentBearing(tunnelMap.playerCoord, exitCoord);
+                return (
+                  <button
+                    key={`exit-${exitCoord.col}-${exitCoord.row}-${idx}`}
+                    onClick={() => handleTunnelTileClick(exitCoord)}
+                    className="flex-1 py-1.5 px-2 bg-gradient-to-r from-emerald-800 to-emerald-700 hover:from-emerald-700 hover:to-emerald-600 active:scale-95 text-emerald-100 font-bold text-xs rounded border border-emerald-500 shadow flex items-center justify-center gap-1 cursor-pointer transition-all"
+                  >
+                    <span>{bearing}</span>
+                    <span className="text-[10px] text-emerald-300">({exitCoord.col},{exitCoord.row})</span>
+                  </button>
+                );
+              })
+            ) : (
+              <span className="text-[11px] text-stone-400 italic">
+                {canDrawTunnelCard ? 'Draw Delve Card above to reveal exits!' : 'No exits available.'}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
 
-      {/* Interactive Event Prompt Modal (Shrines, Rifts) */}
+      {/* Interactive Event Prompt Modal (Shrines, Rifts, Traps, Vaults) */}
       <EventModal prompt={eventPrompt} onResolve={handleResolveEvent} />
+
+      {/* Level Transition Modal (Level 1 Complete -> Descend to Level 2) */}
+      {showLevelTransitionModal && (
+        <LevelTransitionModal
+          remainingEnergy={energy}
+          turnsTaken={level1Turns}
+          onDescend={handleDescendToLevel2}
+          onReviewMap={() => {
+            setShowLevelTransitionModal(false);
+            setReviewingMap(true);
+          }}
+        />
+      )}
 
       {/* Game Over / Win Modal */}
       {(isWon || isLost) && !reviewingMap && (
         <GameOverModal
           won={isWon}
-          turns={turn}
+          turns={currentLevel === 2 ? level2Steps : turn}
           energyLeft={energy}
           revealedCount={revealedCount}
           totalHexes={totalHexes}
@@ -1158,20 +1606,31 @@ export default function App() {
           totalTowers={mapData.towerCoords.length}
           onRestart={handleNewGame}
           onReviewMap={() => setReviewingMap(true)}
+          level={currentLevel}
+          cardsDrawn={level2CardsDrawn}
+          tunnelsCarved={litTunnelCount}
         />
       )}
 
-      {/* Floating banner when reviewing map after game ends */}
-      {(isWon || isLost) && reviewingMap && (
+      {/* Floating banner when reviewing map after game ends or after Level 1 */}
+      {reviewingMap && (
         <div className="fixed top-14 right-4 z-40 flex items-center gap-2 bg-[#f4edd9]/95 backdrop-blur-xs border-2 border-[#2b261f] py-1.5 px-3 rounded-lg shadow-xl font-mono text-xs select-none">
           <span className="font-bold text-[#2b261f]">
-            {isWon ? '🏆 Secret Tunnel Reached!' : '📍 Secret Tunnel Revealed'}
+            {currentLevel === 1 && !isLost ? '🏆 Secret Tunnel Reached!' : isWon ? '🏆 Delve Complete!' : '📍 Map Review'}
           </span>
+          {currentLevel === 1 && !isLost && (
+            <button
+              onClick={handleDescendToLevel2}
+              className="px-2.5 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black rounded border border-[#2b261f] cursor-pointer shadow-sm"
+            >
+              Descend Level 2 ⬇
+            </button>
+          )}
           <button
             onClick={() => setReviewingMap(false)}
             className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold rounded border border-[#2b261f] cursor-pointer"
           >
-            Expedition Ledger
+            Ledger
           </button>
           <button
             onClick={handleNewGame}

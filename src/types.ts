@@ -59,10 +59,12 @@ export interface DeviationState {
 
 export type GameStatus = 'ready_to_roll' | 'planning_move' | 'moving_one' | 'moving' | 'event_prompt' | 'won' | 'lost';
 
+export type GameLevel = 1 | 2;
+
 export interface EventPrompt {
   title: string;
   description: string;
-  type: 'shrine' | 'rift' | 'clue' | 'tower' | 'cache' | 'bog' | 'start' | 'info';
+  type: 'shrine' | 'rift' | 'clue' | 'tower' | 'cache' | 'bog' | 'start' | 'info' | 'tunnel_trap' | 'tunnel_treasure';
   category?: 'Alert' | 'Landmark' | 'Hazard' | 'Discovery' | 'Tile Inspection';
   coord?: HexCoord;
   statBadge?: string;

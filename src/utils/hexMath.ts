@@ -51,6 +51,42 @@ export function getNeighbor(coord: HexCoord, dir: DirectionIndex): HexCoord | nu
   return { col: nextCol, row: nextRow };
 }
 
+// Calculate neighbor coordinates without 11x12 bounding constraints (for organic expanding subterranean maps)
+export function getOrganicNeighbor(coord: HexCoord, dir: DirectionIndex): HexCoord {
+  const isOdd = ((coord.col % 2) + 2) % 2 === 1;
+  let nextCol = coord.col;
+  let nextRow = coord.row;
+
+  switch (dir) {
+    case 1: // NW
+      nextCol = coord.col - 1;
+      nextRow = isOdd ? coord.row : coord.row - 1;
+      break;
+    case 2: // N
+      nextCol = coord.col;
+      nextRow = coord.row - 1;
+      break;
+    case 3: // NE
+      nextCol = coord.col + 1;
+      nextRow = isOdd ? coord.row : coord.row - 1;
+      break;
+    case 4: // SE
+      nextCol = coord.col + 1;
+      nextRow = isOdd ? coord.row + 1 : coord.row;
+      break;
+    case 5: // S
+      nextCol = coord.col;
+      nextRow = coord.row + 1;
+      break;
+    case 6: // SW
+      nextCol = coord.col - 1;
+      nextRow = isOdd ? coord.row + 1 : coord.row;
+      break;
+  }
+
+  return { col: nextCol, row: nextRow };
+}
+
 export function getAllNeighbors(coord: HexCoord): HexCoord[] {
   const neighbors: HexCoord[] = [];
   const directions: DirectionIndex[] = [1, 2, 3, 4, 5, 6];
@@ -257,8 +293,9 @@ export function hexToPixel(col: number, row: number, radius: number): { x: numbe
   const horizontalSpacing = radius * 1.5;
   const verticalSpacing = height;
 
+  const isOdd = ((col % 2) + 2) % 2 === 1;
   const x = col * horizontalSpacing + radius;
-  const y = row * verticalSpacing + (col % 2 !== 0 ? height / 2 : 0) + height / 2;
+  const y = row * verticalSpacing + (isOdd ? height / 2 : 0) + height / 2;
 
   return { x, y };
 }
@@ -321,6 +358,22 @@ export function getCompassDirection(from: HexCoord, to: HexCoord): string {
   if (dy < 0 && dx < 0) return 'North-West';
   if (dy > 0 && dx > 0) return 'South-East';
   return 'South-West';
+}
+
+// Get the precise hex direction arrow and label between adjacent hexes or along a 2-hex straight corridor (NW ↖, N ↑, NE ↗, SE ↘, S ↓, SW ↙)
+export function getAdjacentBearing(from: HexCoord, to: HexCoord): string {
+  const directions: DirectionIndex[] = [1, 2, 3, 4, 5, 6];
+  for (const dir of directions) {
+    const step1 = getOrganicNeighbor(from, dir);
+    if (step1.col === to.col && step1.row === to.row) {
+      return DIRECTION_LABELS[dir].short;
+    }
+    const step2 = getOrganicNeighbor(step1, dir);
+    if (step2.col === to.col && step2.row === to.row) {
+      return DIRECTION_LABELS[dir].short;
+    }
+  }
+  return getCompassDirection(from, to);
 }
 
 // Check if a candidate tile is consistent with a cairn's broadened signpost:

@@ -79,17 +79,25 @@ export const EventModal: React.FC<EventModalProps> = ({ prompt, onResolve }) => 
         setTimeout(() => {
           onResolve(finalDie);
           setRollResult(null);
-        }, 1200);
+        }, 1500);
       }
     }, 80);
   };
 
-  const isHazard = prompt.type === 'rift' || prompt.type === 'bog';
-  const isInteractiveRoll = prompt.type === 'shrine' || prompt.type === 'rift';
+  const isHazard = prompt.type === 'rift' || prompt.type === 'bog' || prompt.type === 'tunnel_trap';
+  const isInteractiveRoll =
+    prompt.type === 'shrine' ||
+    prompt.type === 'rift' ||
+    prompt.type === 'tunnel_trap' ||
+    prompt.type === 'tunnel_treasure';
 
   // Choose icon based on tile type
   const renderIcon = () => {
     switch (prompt.type) {
+      case 'tunnel_trap':
+        return <AlertTriangle className="w-5 h-5 text-rose-500" />;
+      case 'tunnel_treasure':
+        return <Sparkles className="w-5 h-5 text-amber-500" />;
       case 'tower':
         return <Eye className="w-5 h-5 text-[#b45309]" />;
       case 'cache':
@@ -112,6 +120,10 @@ export const EventModal: React.FC<EventModalProps> = ({ prompt, onResolve }) => 
   // Header background theme
   const getHeaderBg = () => {
     switch (prompt.type) {
+      case 'tunnel_trap':
+        return 'bg-rose-950 text-rose-200 border-rose-700';
+      case 'tunnel_treasure':
+        return 'bg-amber-950 text-amber-200 border-amber-600';
       case 'tower':
         return 'bg-[#fef3c7] text-[#92400e] border-[#b45309]';
       case 'cache':
@@ -210,6 +222,20 @@ export const EventModal: React.FC<EventModalProps> = ({ prompt, onResolve }) => 
                     ) : (
                       <span className="text-[#2d6a4f]">Even Pips: Safely navigated through the rift! ✨</span>
                     )
+                  ) : prompt.type === 'tunnel_trap' ? (
+                    rollResult % 2 !== 0 ? (
+                      <span className="text-[#b91c1c]">
+                        Odd ({rollResult} {rollResult === 1 ? 'Pip' : 'Pips'}): Trap sprang! -2 Energy penalty! ⚠️
+                      </span>
+                    ) : (
+                      <span className="text-[#15803d]">
+                        Even ({rollResult} Pips): Sprang aside safely! No damage taken! ✨
+                      </span>
+                    )
+                  ) : prompt.type === 'tunnel_treasure' ? (
+                    <span className="text-[#b45309]">
+                      {rollResult} {rollResult === 1 ? 'Pip' : 'Pips'}: +{rollResult} Energy restored from ancient vault! 💎
+                    </span>
                   ) : null}
                 </div>
               )}
