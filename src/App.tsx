@@ -33,7 +33,11 @@ import {
   getDestinationThroughHallway,
   TUNNEL_START_COORD,
 } from './utils/tunnelEngine';
-import { createShuffledHeartsDeck } from './utils/delveDeck';
+import {
+  createShuffledHeartsDeck,
+  TunnelCard,
+  isStandardChamber,
+} from './utils/delveDeck';
 import { Header } from './components/Header';
 import { HexGrid } from './components/HexGrid';
 import { TunnelGrid } from './components/TunnelGrid';
@@ -43,6 +47,7 @@ import { RulesModal } from './components/RulesModal';
 import { EventModal } from './components/EventModal';
 import { GameOverModal } from './components/GameOverModal';
 import { LevelTransitionModal } from './components/LevelTransitionModal';
+import { UtopiaEncounterModal } from './components/UtopiaEncounterModal';
 
 const MAX_ENERGY = 30;
 
@@ -60,6 +65,11 @@ export default function App() {
   const [level2Steps, setLevel2Steps] = useState<number>(0);
   const [level2CardsDrawn, setLevel2CardsDrawn] = useState<number>(0);
   const [level2TargetFound, setLevel2TargetFound] = useState<boolean>(false);
+  const [activeUtopiaEncounter, setActiveUtopiaEncounter] = useState<{
+    card: TunnelCard;
+    chamberCoord: HexCoord;
+    headingFrom?: DirectionIndex;
+  } | null>(null);
 
   // Game Map State (Level 1)
   const [mapData, setMapData] = useState(() => generateMap());
@@ -222,6 +232,7 @@ export default function App() {
     setLevel2Steps(0);
     setLevel2CardsDrawn(0);
     setLevel2TargetFound(false);
+    setActiveUtopiaEncounter(null);
 
     const newMap = generateMap();
     setMapData(newMap);
@@ -1164,6 +1175,7 @@ export default function App() {
     setLevel2Steps(0);
     setLevel2CardsDrawn(0);
     setLevel2TargetFound(false);
+    setActiveUtopiaEncounter(null);
     setStatusMessage(
       'Descended into Level 2: The Underground Tunnels! Draw a Hearts Delve Card to survey entry chamber (0, 0) and carve corridor exits.'
     );
@@ -1171,7 +1183,14 @@ export default function App() {
 
   // Check if player in Level 2 can manually draw
   const canDrawTunnelCard = useMemo(() => {
-    if (currentLevel !== 2 || isWon || isLost || Boolean(eventPrompt)) return false;
+    if (
+      currentLevel !== 2 ||
+      isWon ||
+      isLost ||
+      Boolean(eventPrompt) ||
+      Boolean(activeUtopiaEncounter)
+    )
+      return false;
     const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
     const tile = tunnelMap.tiles.get(currentKey);
     return Boolean(
@@ -1181,7 +1200,7 @@ export default function App() {
       !tile.isTarget &&
       tunnelMap.deck.length > 0
     );
-  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt]);
+  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt, activeUtopiaEncounter]);
 
   // Interactive exits available from current player tile in Level 2
   // When in an unsurveyed chamber or awaiting delve card draw (after enter or after JQK),
@@ -1192,7 +1211,7 @@ export default function App() {
     const currentTile = tunnelMap.tiles.get(currentKey);
     if (!currentTile) return [];
 
-    const exits: HexCoord[] = [];
+    const allExits: HexCoord[] = [];
     const visitedExitKeys = new Set<string>();
 
     for (const dir of currentTile.connections) {
@@ -1210,10 +1229,36 @@ export default function App() {
       const destTile = tunnelMap.tiles.get(destKey);
       if (destTile && destTile.status === 'lit' && !visitedExitKeys.has(destKey)) {
         visitedExitKeys.add(destKey);
-        exits.push(dest);
+        allExits.push(dest);
       }
     }
-    return exits;
+
+    // Classify exits into forward (unexplored or target exit) and retreat (already visited)
+    const forwardExits: HexCoord[] = [];
+    const retreatExits: HexCoord[] = [];
+
+    for (const exit of allExits) {
+      const exitKey = `${exit.col},${exit.row}`;
+      const exitTile = tunnelMap.tiles.get(exitKey);
+      if (exitTile && (!exitTile.visited || exitTile.isTarget)) {
+        forwardExits.push(exit);
+      } else if (exitTile && !exitTile.isDeadEnd) {
+        // Exclude retreating into a known dead-end cave-in
+        retreatExits.push(exit);
+      }
+    }
+
+    // Remove the retreat option unless forced to by a dead end.
+    // If the current chamber is a dead end or no forward exits are available,
+    // the player is forced to retreat.
+    const isForcedDeadEnd = Boolean(currentTile.isDeadEnd) || forwardExits.length === 0;
+
+    if (!isForcedDeadEnd) {
+      return forwardExits;
+    }
+
+    // In a dead end or when forward paths are exhausted, return retreat exits (or allExits as fallback)
+    return retreatExits.length > 0 ? retreatExits : allExits;
   }, [currentLevel, tunnelMap.playerCoord, tunnelMap.tiles, isWon, isLost, canDrawTunnelCard]);
 
   // Count of illuminated / explored tunnel tiles
@@ -1407,6 +1452,38 @@ export default function App() {
     setLevel2CardsDrawn(drawnCount);
 
     const updatedTiles = new Map(tunnelMap.tiles);
+
+    // Standard chamber cards (2, 3, 4, 6, 8, 9, 10) trigger the Utopia Engine encounter!
+    // Corridor exits will be carved upon completing the encounter.
+    if (isStandardChamber(nextCard)) {
+      const currentTile = updatedTiles.get(currentKey);
+      if (currentTile) {
+        currentTile.card = nextCard;
+        if (!currentTile.cardsHistory) currentTile.cardsHistory = [];
+        currentTile.cardsHistory.push(nextCard);
+      }
+
+      setTunnelMap((prev) => ({
+        ...prev,
+        tiles: updatedTiles,
+        deck: updatedDeck,
+        discard: [...prev.discard, nextCard],
+        activeCard: nextCard,
+        cardsDrawnCount: drawnCount,
+      }));
+
+      setActiveUtopiaEncounter({
+        card: nextCard,
+        chamberCoord: tunnelMap.playerCoord,
+        headingFrom: currentTunnelHeading,
+      });
+
+      setStatusMessage(
+        `Entered standard chamber: ${nextCard.name}! Complete the Utopia Engine alignment grid encounter to carve corridor exits.`
+      );
+      return;
+    }
+
     const carveResult = carveCorridorsForTile(
       updatedTiles,
       tunnelMap.playerCoord,
@@ -1477,6 +1554,61 @@ export default function App() {
       cardsDrawnCount: drawnCount,
     }));
   };
+
+  // Complete Utopia Engine Encounter and carve corridors for chamber
+  const handleCompleteUtopiaEncounter = useCallback(() => {
+    if (!activeUtopiaEncounter) return;
+
+    const { card, chamberCoord, headingFrom } = activeUtopiaEncounter;
+    const updatedTiles = new Map(tunnelMap.tiles);
+    const carveResult = carveCorridorsForTile(
+      updatedTiles,
+      chamberCoord,
+      card,
+      headingFrom
+    );
+
+    const currentKey = `${chamberCoord.col},${chamberCoord.row}`;
+    const currentTile = updatedTiles.get(currentKey);
+    if (currentTile) {
+      currentTile.exitsCarved = true;
+    }
+
+    sounds.playVictory();
+    setStatusMessage(
+      `Chamber cleared! Carved ${carveResult.openedCoords.length} corridor exit${
+        carveResult.openedCoords.length !== 1 ? 's' : ''
+      }. Step into an exit (-1 ⚡) to continue.`
+    );
+
+    setTunnelMap((prev) => ({
+      ...prev,
+      tiles: updatedTiles,
+      activeCard: card,
+    }));
+
+    setActiveUtopiaEncounter(null);
+  }, [activeUtopiaEncounter, tunnelMap.tiles]);
+
+  // Adjust energy during Utopia encounter (reward bonus or combat damage)
+  const handleModifyEnergy = useCallback((delta: number) => {
+    setEnergy((prev) => {
+      if (delta > 0) {
+        return Math.min(prev + delta, MAX_ENERGY);
+      } else {
+        const next = Math.max(0, prev + delta);
+        return next;
+      }
+    });
+  }, []);
+
+  // Player died in combat during Utopia encounter
+  const handleUtopiaDelveLost = useCallback((reason: string) => {
+    sounds.playHazard();
+    setIsLost(true);
+    setStatusMessage(`Delve lost: ${reason}`);
+    setActiveUtopiaEncounter(null);
+  }, []);
 
   // Derived stats
   const revealedCount = useMemo(() => {
@@ -1621,7 +1753,7 @@ export default function App() {
                     );
                   }
 
-                  if (isDeadEnd) {
+                  if (isDeadEnd || isRetrace) {
                     return (
                       <button
                         key={`exit-retrace-${exitCoord.col}-${exitCoord.row}-${idx}`}
@@ -1643,7 +1775,6 @@ export default function App() {
                       onClick={() => handleTunnelTileClick(exitCoord)}
                       className="flex-1 py-2 px-2 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white border-2 border-[#2b261f] rounded-lg font-mono font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:translate-y-0.5"
                     >
-                      {isRetrace && <span className="text-xs">↩</span>}
                       <span>{bearing}</span>
                       <span className="text-[10px] font-mono font-bold text-[#bbf7d0] bg-[#1b4332] px-1.5 py-0.5 rounded border border-[#15803d] ml-auto">
                         -1⚡
@@ -1663,6 +1794,20 @@ export default function App() {
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
+
+      {/* Utopia Engine Chamber Encounter Modal */}
+      {activeUtopiaEncounter && (
+        <UtopiaEncounterModal
+          card={activeUtopiaEncounter.card}
+          chamberCoord={activeUtopiaEncounter.chamberCoord}
+          headingFrom={activeUtopiaEncounter.headingFrom}
+          energy={energy}
+          maxEnergy={MAX_ENERGY}
+          onModifyEnergy={handleModifyEnergy}
+          onCompleteEncounter={handleCompleteUtopiaEncounter}
+          onDelveLost={handleUtopiaDelveLost}
+        />
+      )}
 
       {/* Interactive Event Prompt Modal (Shrines, Rifts, Traps, Vaults) */}
       <EventModal prompt={eventPrompt} onResolve={handleResolveEvent} />

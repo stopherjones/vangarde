@@ -55,6 +55,21 @@ export const ALL_HEART_RANKS: HeartCardRank[] = [
   'K',
 ];
 
+export const STANDARD_CHAMBER_RANKS: HeartCardRank[] = [
+  '2',
+  '3',
+  '4',
+  '6',
+  '8',
+  '9',
+  '10',
+];
+
+export function isStandardChamber(card: TunnelCard | null | undefined): boolean {
+  if (!card) return false;
+  return STANDARD_CHAMBER_RANKS.includes(card.rank);
+}
+
 export function getCardDetails(rank: HeartCardRank): Omit<TunnelCard, 'id'> {
   switch (rank) {
     case 'A':

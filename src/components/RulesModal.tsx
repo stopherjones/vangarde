@@ -114,25 +114,31 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* Level 2: The Underground Tunnels */}
-          <div className="space-y-1.5 bg-[#1c1917] text-stone-200 p-2.5 rounded-lg border border-[#44403c]">
-            <div className="font-black uppercase text-rose-400 flex items-center gap-1.5 border-b border-stone-700 pb-1 text-xs">
+          <div className="space-y-1.5 bg-[#ede4d3] text-[#2b261f] p-2.5 rounded-lg border-2 border-[#2b261f]">
+            <div className="font-black uppercase text-[#991b1b] flex items-center gap-1.5 border-b border-[#2b261f]/20 pb-1 text-xs">
               <span className="text-sm leading-none">♥</span>
-              <span>Level 2: The Underground Tunnels</span>
+              <span>Level 2: Underground Tunnels & Utopia Engine Encounters</span>
             </div>
-            <p className="text-[11px] text-stone-300">
-              Upon reaching the Secret Tunnel Entrance, you descend into pitch darkness starting at the bottom-middle hex (5, 11). Carry forward your remaining Energy from Level 1!
+            <p className="text-[11px] text-[#443d33]">
+              Carry forward your remaining Energy from Level 1 into the subterranean labyrinth. Survey unexplored chambers by drawing from the Hearts Delve Deck:
             </p>
             <div className="space-y-1 text-[10.5px]">
-              <div>• <strong>Draw from the Hearts Deck:</strong> Survey chambers and discover corridor exits:</div>
-              <div className="pl-2 border-l border-rose-500/40 space-y-0.5 text-stone-300">
-                <div>- <strong>Ace (A♥):</strong> The Target! Shuffled into the back half of the deck. Drawing Ace reveals the grand Exit Archway. Move into that hex to escape and end the level in victory!</div>
-                <div>- <strong>2, 4, 8, 10:</strong> Carves 2 exits ahead. Corridors adapt if standard directions are blocked.</div>
-                <div>- <strong>3, 6, 9:</strong> Carves 3 exits ahead through open cavern rock.</div>
-                <div>- <strong>5 & 7 (Dead Ends):</strong> Tumbled boulders collapse the passage! Only drawn if more than 1 live exit exists. Creates NO new exits; retrace steps to another branch.</div>
-                <div>- <strong>Jack (J♥ Trap):</strong> Creates NO exits. Roll Fate D6 (Odd = -2 ⚡, Even = Safe). Once resolved, draw a new card for exits!</div>
-                <div>- <strong>Queen & King (Q♥/K♥ Vaults):</strong> Creates NO exits. Roll Fate D6 for bonus Energy. Once resolved, draw a new card for exits!</div>
+              <div className="pl-2 border-l-2 border-[#991b1b]/40 space-y-0.5 text-[#443d33]">
+                <div>• <strong>Ace (A♥):</strong> The Target! Shuffled into the back half of the deck. Reveals the grand Exit Archway. Step onto it to escape and claim victory!</div>
+                <div>• <strong>Standard Chambers (2, 3, 4, 6, 8, 9, 10):</strong> Initiates a <strong>Utopia Engine Encounter</strong>! Roll 3 pairs of dice and place them into a 3×2 grid. Subtract the bottom 3-digit number from the top:</div>
+                <div className="pl-2 space-y-0.5 text-[#5c5346]">
+                  <div>- <strong>Score 0 (Jackpot):</strong> Roll D6 + 4 bonus Energy!</div>
+                  <div>- <strong>Score 1–10 (Good):</strong> Roll D6 + 2 bonus Energy!</div>
+                  <div>- <strong>Score 11–99 (OK):</strong> Roll D6 bonus Energy!</div>
+                  <div>- <strong>Score 100–250 (or -1 to -250):</strong> Low Threat Monster (Defeat with 4, 5, 6 | Lose 1⚡ on 1).</div>
+                  <div>- <strong>Score 251–400 (or -251 to -400):</strong> Medium Threat Monster (Defeat with 5, 6 | Lose 1⚡ on 1, 2).</div>
+                  <div>- <strong>Score 401–555 (or -401 to -555):</strong> High Threat Monster (Defeat with 6 | Lose 1⚡ on 1, 2, 3).</div>
+                </div>
+                <div>• <strong>5 & 7 (Dead Ends):</strong> Tumbled boulders collapse the passage ahead. Retrace steps back along live corridors.</div>
+                <div>• <strong>Jack (J♥ Trap):</strong> Spring blades! Roll D6: Odd = -2 ⚡, Even = Safe dodge.</div>
+                <div>• <strong>Queen & King (Q♥/K♥ Vaults):</strong> Ancient strongbox! Roll D6 for bonus Energy.</div>
               </div>
-              <div>• <strong>Movement & Routing:</strong> Click any illuminated adjacent exit to advance (-1 ⚡). Exits dynamically open around walls or edges if forward paths are blocked.</div>
+              <div className="text-[#5c5346] pt-0.5">• <strong>Movement:</strong> Step into carved corridor exits (-1 ⚡) to explore deeper into the underground realm.</div>
             </div>
           </div>
         </div>
