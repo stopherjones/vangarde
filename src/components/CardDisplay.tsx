@@ -8,8 +8,8 @@ interface CardDisplayProps {
   card: TunnelCard | null;
   deckCount: number;
   discardCards?: TunnelCard[];
-  onDrawCard?: () => void;
   canDraw?: boolean;
+  onDrawCard?: () => void;
   activeExitDirs?: DirectionIndex[];
 }
 
@@ -17,8 +17,8 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
   card,
   deckCount,
   discardCards = [],
-  onDrawCard,
   canDraw = false,
+  onDrawCard,
   activeExitDirs = [],
 }) => {
   const drawnRanksSet = new Set(discardCards.map((c) => c.rank));
@@ -44,9 +44,9 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
   };
 
   return (
-    <div className="bg-[#1c1917] border border-[#44403c] rounded-xl p-2 shadow-lg text-stone-200 flex flex-col gap-2 select-none">
-      {/* Illuminated Cards Tracker Row (greys out as drawn) */}
-      <div className="flex items-center justify-between gap-1 overflow-x-auto py-1 px-1 bg-[#141211] rounded-lg border border-[#2b2724]">
+    <div className="bg-[#f4edd9] border-2 border-[#2b261f] rounded-lg p-2 shadow-sm text-[#2b261f] flex flex-col gap-2 select-none">
+      {/* Cards Tracker Row (greys out as drawn) */}
+      <div className="flex items-center justify-between gap-1 overflow-x-auto py-1 px-1 bg-[#e8deca] rounded-md border border-[#2b261f]/30">
         {ALL_HEART_RANKS.map((rank) => {
           const isDrawn = drawnRanksSet.has(rank);
           return (
@@ -54,12 +54,14 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
               key={rank}
               className={`flex-1 min-w-[20px] py-1 px-0.5 rounded text-center text-[10px] font-mono leading-none border transition-all ${
                 isDrawn
-                  ? 'bg-[#1e1b18] text-stone-600 border-stone-800 line-through opacity-40'
+                  ? 'bg-[#ded4bf] text-[#8c8273] border-[#8c8273]/30 line-through opacity-50'
                   : rank === 'A'
-                  ? 'bg-amber-950 text-amber-300 border-amber-600 font-black animate-pulse shadow-xs'
+                  ? 'bg-[#fae19c] text-[#78350f] border-[#b45309] font-black'
                   : rank === 'J'
-                  ? 'bg-rose-950 text-rose-300 border-rose-800 font-bold'
-                  : 'bg-[#292524] text-rose-400 border-[#44403c] font-bold'
+                  ? 'bg-[#fee2e2] text-[#991b1b] border-[#ef4444] font-bold'
+                  : rank === 'Q' || rank === 'K'
+                  ? 'bg-[#fef3c7] text-[#92400e] border-[#d97706] font-bold'
+                  : 'bg-[#fdfbf7] text-[#991b1b] border-[#2b261f]/20 font-bold'
               }`}
               title={`${rank}♥: ${isDrawn ? 'Drawn' : 'In Deck'}`}
             >
@@ -69,49 +71,44 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
         })}
       </div>
 
-      {/* Main Interactive Section: Prompts To Draw Card OR Active Card Details */}
+      {/* Main Status Section: Chamber Status OR Active Card Details */}
       {canDraw ? (
-        <div className="p-2 bg-[#25211e] rounded-lg border border-[#443e38] shadow-md flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5 text-left w-full sm:w-auto">
-            {/* Playing Card Back Icon */}
-            <div className="w-10 h-14 bg-gradient-to-b from-[#2e2620] to-[#1a1614] border border-amber-600/70 rounded-md shadow-md flex flex-col items-center justify-center p-0.5 flex-shrink-0">
-              <span className="text-base text-rose-400 font-black">♥</span>
-              <div className="w-5 h-5 rounded-full border border-amber-500/40 flex items-center justify-center mt-0.5">
-                <Sparkle className="w-3 h-3 text-amber-300" />
-              </div>
-            </div>
-            <div>
-              <div className="text-xs font-black text-stone-100">
-                {card && (card.effect === 'trap' || card.effect === 'treasure')
-                  ? `${card.rank}♥ Cleared!`
-                  : 'Chamber Unsurveyed!'}
-              </div>
-              <div className="text-[11px] text-stone-300 leading-snug mt-0.5">
-                {card && (card.effect === 'trap' || card.effect === 'treasure')
-                  ? 'Event resolved! Draw a new Delve Card to discover corridor exits.'
-                  : 'Draw a Hearts Delve Card to survey this chamber & carve exits.'}
-              </div>
+        <div
+          onClick={onDrawCard}
+          className={`p-2 bg-[#fdfbf7] rounded-md border border-[#2b261f]/30 shadow-xs flex items-center gap-3 ${
+            onDrawCard ? 'cursor-pointer hover:bg-[#fff9ed] transition-colors' : ''
+          }`}
+          title={onDrawCard ? 'Click to Draw Delve Card' : undefined}
+        >
+          {/* Playing Card Back Graphic */}
+          <div className="w-10 h-14 bg-[#ede4d3] border-2 border-[#2b261f] rounded-md shadow-xs flex flex-col items-center justify-center p-0.5 flex-shrink-0">
+            <span className="text-base text-[#b91c1c] font-black">♥</span>
+            <div className="w-5 h-5 rounded-full border border-[#2b261f]/30 flex items-center justify-center mt-0.5">
+              <Sparkle className="w-3 h-3 text-[#786e5e]" />
             </div>
           </div>
-
-          {onDrawCard && (
-            <button
-              onClick={onDrawCard}
-              className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-emerald-800 to-emerald-700 hover:from-emerald-700 hover:to-emerald-600 active:scale-95 text-emerald-100 font-bold text-xs uppercase rounded border border-emerald-500 shadow flex items-center justify-center gap-1.5 cursor-pointer transition-all flex-shrink-0"
-            >
-              <span className="text-sm leading-none">🂠</span>
-              <span>
+          <div className="flex-1 min-w-0 font-mono">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-black text-[#2b261f] truncate">
                 {card && (card.effect === 'trap' || card.effect === 'treasure')
-                  ? 'Draw Exits Card'
-                  : 'Draw Delve Card'}
+                  ? `${card.rank}♥ Event Cleared!`
+                  : 'Chamber Unsurveyed'}
               </span>
-            </button>
-          )}
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wide bg-[#fae19c] text-[#78350f] border border-[#b45309] flex-shrink-0">
+                Action Required
+              </span>
+            </div>
+            <div className="text-[11px] text-[#5c5346] leading-snug mt-1">
+              {card && (card.effect === 'trap' || card.effect === 'treasure')
+                ? 'Chamber event resolved! Press "DRAW DELVE CARD" below to explore exits.'
+                : 'Press "DRAW DELVE CARD" below to survey this chamber and carve corridor exits.'}
+            </div>
+          </div>
         </div>
       ) : card ? (
         <div className="flex items-center gap-3 px-1 py-0.5">
-          {/* Card Face Graphic - Completely contained with absolute positioning & overflow-hidden */}
-          <div className="relative w-11 h-15 bg-[#fffdfa] border-2 border-[#2b261f] rounded-md shadow-md select-none flex-shrink-0 overflow-hidden">
+          {/* Card Face Graphic */}
+          <div className="relative w-11 h-15 bg-[#fffdfa] border-2 border-[#2b261f] rounded-md shadow-xs select-none flex-shrink-0 overflow-hidden">
             {/* Top-left corner */}
             <div className="absolute top-1 left-1 flex flex-col items-center leading-none pointer-events-none">
               <span className="font-serif font-black text-xs text-[#b91c1c] leading-none">
@@ -123,13 +120,13 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
             {/* Center Emblem */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {card.effect === 'target' ? (
-                <Trophy className="w-4 h-4 text-amber-500 animate-pulse" />
+                <Trophy className="w-4 h-4 text-[#b45309]" />
               ) : card.effect === 'dead_end' ? (
-                <Ban className="w-3.5 h-3.5 text-stone-500" />
+                <Ban className="w-3.5 h-3.5 text-[#786e5e]" />
               ) : card.effect === 'trap' ? (
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-600" />
+                <ShieldAlert className="w-3.5 h-3.5 text-[#b91c1c]" />
               ) : card.effect === 'treasure' ? (
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <Sparkles className="w-3.5 h-3.5 text-[#b45309]" />
               ) : (
                 <span className="font-serif font-black text-sm text-[#b91c1c] leading-none">♥</span>
               )}
@@ -144,36 +141,21 @@ export const CardDisplay: React.FC<CardDisplayProps> = ({
             </div>
           </div>
 
-          {/* Concise Card Details */}
+          {/* Concise Card Details without clutter or chamber pill */}
           <div className="flex-1 min-w-0 space-y-0.5 font-mono">
             <div className="flex items-center justify-between gap-1">
-              <span className="font-bold text-xs text-rose-300 truncate">
+              <span className="font-bold text-xs text-[#2b261f] truncate">
                 {getCardTitle(card)}
-              </span>
-              <span
-                className={`text-[9px] px-1 py-0.2 rounded font-black uppercase flex-shrink-0 ${
-                  card.effect === 'target'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : card.effect === 'dead_end'
-                    ? 'bg-stone-700 text-stone-300'
-                    : card.effect === 'trap'
-                    ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                    : card.effect === 'treasure'
-                    ? 'bg-amber-950 text-amber-300 border border-amber-800'
-                    : 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                }`}
-              >
-                {card.effect === 'target' ? 'Goal' : card.effect}
               </span>
             </div>
 
-            <p className="text-[11px] text-stone-300 leading-snug">
+            <p className="text-[11px] text-[#5c5346] leading-snug">
               {getCardConciseDescription(card, activeExitDirs)}
             </p>
           </div>
         </div>
       ) : (
-        <div className="py-1 text-center text-xs font-mono text-stone-400">
+        <div className="py-1 text-center text-xs font-mono text-[#786e5e]">
           Step into an illuminated corridor exit to explore deeper.
         </div>
       )}

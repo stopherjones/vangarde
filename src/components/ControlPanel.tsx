@@ -202,19 +202,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <button
                 id="btn-move-one"
                 onClick={onToggleMoveOne}
-                className={`py-1 px-3 text-[10.5px] font-mono font-bold rounded-lg border-2 border-[#16a34a] flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0 leading-tight shadow-xs ${
+                className={`py-1 px-3 text-[10.5px] font-mono font-bold rounded-lg border-2 flex flex-col items-center justify-center transition-colors cursor-pointer shrink-0 leading-tight shadow-xs ${
                   isMoveOne
-                    ? 'bg-[#15803d] text-white ring-2 ring-[#166534]'
-                    : 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d]'
+                    ? 'bg-[#15803d] text-white ring-2 ring-[#166534] border-[#166534]'
+                    : energy <= 0
+                    ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-600 animate-pulse ring-2 ring-amber-400'
+                    : 'bg-[#dcfce7] hover:bg-[#bbf7d0] text-[#15803d] border-[#16a34a]'
                 }`}
                 title={`Free Move 1 Hex: Step into any adjacent hex for 0 Energy (${freeMoves} free move${freeMoves > 1 ? 's' : ''} left)`}
               >
                 <div className="flex items-center gap-1">
                   <Footprints className="w-3.5 h-3.5" />
-                  <span>{isMoveOne ? 'Cancel' : `Free Move (${freeMoves})`}</span>
+                  <span>{isMoveOne ? 'Cancel' : energy <= 0 ? `LAST BREATH (${freeMoves})` : `Free Move (${freeMoves})`}</span>
                 </div>
-                <span className="text-[9px] opacity-80 whitespace-nowrap">
-                  {isMoveOne ? 'Tap Hex' : 'FREE ⚡'}
+                <span className="text-[9px] opacity-80 whitespace-nowrap font-black">
+                  {isMoveOne ? 'Tap Hex' : energy <= 0 ? '0⚡ REMAINING!' : 'FREE ⚡'}
                 </span>
               </button>
             )}

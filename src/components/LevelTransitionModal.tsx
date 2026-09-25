@@ -15,55 +15,55 @@ export const LevelTransitionModal: React.FC<LevelTransitionModalProps> = ({
   onReviewMap,
 }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-xs select-none">
-      <div className="w-full max-w-sm bg-[#1c1917] border-2 border-[#d97706] rounded-xl shadow-2xl overflow-hidden text-center text-stone-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs select-none">
+      <div className="w-full max-w-sm bg-[#f4edd9] border-2 border-[#2b261f] rounded-xl shadow-2xl overflow-hidden text-center text-[#2b261f]">
         {/* Banner */}
-        <div className="py-4 px-4 bg-gradient-to-r from-amber-700 via-amber-600 to-amber-700 border-b-2 border-[#2b261f] font-mono font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 text-stone-900">
-          <Flame className="w-5 h-5 text-yellow-200 animate-pulse" />
+        <div className="py-3.5 px-4 bg-[#2d6a4f] text-white border-b-2 border-[#2b261f] font-mono font-black text-base uppercase tracking-wider flex items-center justify-center gap-2">
+          <Flame className="w-5 h-5 text-yellow-300" />
           <span>LEVEL 1 COMPLETE!</span>
         </div>
 
         {/* Details */}
         <div className="p-5 space-y-4 font-mono text-xs">
           <div className="space-y-1">
-            <h3 className="text-amber-400 font-black text-sm uppercase">
+            <h3 className="text-[#2d6a4f] font-black text-sm uppercase">
               Secret Tunnel Discovered!
             </h3>
-            <p className="text-stone-300 leading-relaxed text-[11px]">
+            <p className="text-[#5c5346] leading-relaxed text-[11px]">
               You have located the ancient subterranean passage hidden beneath the wilderness. A draft of cold air beckons from the depths below.
             </p>
           </div>
 
           {/* Expedition Hand-Off Stats */}
-          <div className="bg-[#292524] p-3 rounded-lg border border-amber-600/40 space-y-2 text-left">
-            <div className="text-[11px] font-bold uppercase text-amber-300 border-b border-stone-700 pb-1 flex items-center justify-between">
+          <div className="bg-[#ede4d3] p-3 rounded-lg border border-[#2b261f]/30 space-y-2 text-left">
+            <div className="text-[11px] font-bold uppercase text-[#2b261f] border-b border-[#2b261f]/20 pb-1 flex items-center justify-between">
               <span>Wilderness Expedition Record</span>
-              <span className="text-[10px] text-stone-400">Level 1 Complete</span>
+              <span className="text-[10px] text-[#786e5e]">Level 1 Complete</span>
             </div>
 
-            <div className="flex justify-between items-center text-stone-300 text-xs">
+            <div className="flex justify-between items-center text-[#2b261f] text-xs">
               <span className="flex items-center gap-1.5">
-                <Footprints className="w-3.5 h-3.5 text-amber-500" /> Turns Taken:
+                <Footprints className="w-3.5 h-3.5 text-[#2d6a4f]" /> Turns Taken:
               </span>
-              <span className="font-bold text-stone-100">{turnsTaken}</span>
+              <span className="font-bold text-[#1c1917]">{turnsTaken}</span>
             </div>
 
-            <div className="flex justify-between items-center text-stone-300 text-xs">
+            <div className="flex justify-between items-center text-[#2b261f] text-xs">
               <span className="flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-yellow-400" /> Energy Carried Forward:
+                <Zap className="w-3.5 h-3.5 text-amber-600" /> Energy Carried Forward:
               </span>
-              <span className="font-bold text-yellow-300 bg-stone-900 px-2 py-0.5 rounded border border-yellow-500/40">
+              <span className="font-bold text-[#15803d] bg-[#dcfce7] px-2 py-0.5 rounded border border-[#16a34a]">
                 {remainingEnergy} ⚡
               </span>
             </div>
           </div>
 
           {/* Level 2 Rules Teaser */}
-          <div className="bg-[#0c0a09] p-2.5 rounded-lg border border-stone-800 text-left space-y-1 text-[10.5px]">
-            <span className="text-rose-400 font-bold uppercase flex items-center gap-1">
+          <div className="bg-[#fdfbf7] p-2.5 rounded-lg border border-[#2b261f]/20 text-left space-y-1 text-[10.5px]">
+            <span className="text-[#b91c1c] font-bold uppercase flex items-center gap-1">
               <span>♥</span> Level 2: The Underground Tunnels
             </span>
-            <p className="text-stone-400">
+            <p className="text-[#5c5346]">
               Draw from the Hearts deck to illuminate corridors and carve exits. Beware traps and dead ends, and seek the Ace of Hearts to escape to the surface!
             </p>
           </div>
@@ -72,17 +72,17 @@ export const LevelTransitionModal: React.FC<LevelTransitionModalProps> = ({
           <div className="space-y-2 pt-1">
             <button
               onClick={onDescend}
-              className="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 active:scale-[0.99] text-stone-950 font-mono font-black text-xs uppercase tracking-wider rounded-lg border border-amber-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-2.5 px-4 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white font-mono font-black text-xs sm:text-sm uppercase tracking-wider rounded-lg border-2 border-[#2b261f] shadow-md flex items-center justify-center gap-2 cursor-pointer transition-transform active:translate-y-0.5"
             >
-              <ArrowDown className="w-4 h-4 text-stone-900" />
+              <ArrowDown className="w-4 h-4" />
               <span>Descend into Underground Tunnels</span>
             </button>
 
             <button
               onClick={onReviewMap}
-              className="w-full py-2 px-3 bg-[#292524] hover:bg-[#322e2b] text-stone-300 font-mono font-bold text-xs uppercase rounded-lg border border-stone-700 flex items-center justify-center gap-2 cursor-pointer transition-colors"
+              className="w-full py-2 px-3 bg-[#e2d5bd] hover:bg-[#d8c8ab] text-[#2b261f] font-mono font-bold text-xs uppercase rounded-lg border border-[#2b261f] flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
-              <Compass className="w-3.5 h-3.5 text-amber-500" />
+              <Compass className="w-3.5 h-3.5 text-[#2d6a4f]" />
               <span>Review Level 1 Wilderness Map</span>
             </button>
           </div>

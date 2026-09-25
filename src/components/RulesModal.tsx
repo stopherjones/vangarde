@@ -69,7 +69,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
               <li><strong>Moving:</strong> Costs 1 Energy per hex traveled.</li>
               <li><strong>Boundary Bouncing:</strong> If your path reaches the edge of the map, it bounces back into the grid so you never get stuck with lost moves.</li>
               <li><strong>Revealing vs Activating:</strong> All hexes passed over are revealed from the fog. Shrines, caches, and rifts only trigger if you land on them — but Clue Cairns activate, and Peat Bogs apply their -1 Energy penalty, whenever you pass over them (watchtowers revealing bogs from afar do not trigger the penalty)!</li>
-              <li><strong>Free Move 1 Hex:</strong> When blessed by a Fortune Shrine, you can trigger a Free Move to step directly into any adjacent hex for 0 Energy (costs no ⚡).</li>
+              <li><strong>Free Move 1 Hex & "Last Breath":</strong> When blessed by a Fortune Shrine, you can trigger a Free Move to step directly into any adjacent hex for 0 Energy (costs no ⚡). If your Energy reaches 0⚡ while you still have a Free Move, the expedition does NOT perish immediately! You may use your final burst of momentum ("Last Breath") to reach safety, an energy cache, or the Secret Tunnel Entrance.</li>
             </ul>
           </div>
 

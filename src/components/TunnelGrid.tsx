@@ -311,7 +311,6 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                   fill="none"
                   stroke="#f59e0b"
                   strokeWidth="1.8"
-                  className="animate-pulse"
                 />
               )}
             </g>
@@ -417,7 +416,6 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                     fill="none"
                     stroke="#f59e0b"
                     strokeWidth="2"
-                    className="animate-pulse"
                   />
                 )}
               </g>
@@ -434,19 +432,19 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                 onClick={() => onTileClick({ col: tile.col, row: tile.row })}
                 className="cursor-pointer group"
               >
-                {/* Dark obsidian chamber foundation */}
+                {/* Stone chamber foundation matching paper cartography */}
                 <polygon
                   points={points}
-                  fill="#151210"
-                  stroke="#10b981"
-                  strokeWidth={isExit ? 2.6 : 1.6}
+                  fill="#2c2621"
+                  stroke="#2d6a4f"
+                  strokeWidth={isExit ? 2.4 : 1.6}
                 />
 
-                {/* Emerald pulse halo filling the chamber */}
+                {/* Corridor pavers fill */}
                 <polygon
                   points={points}
-                  fill="url(#unexplored-exit-glow)"
-                  className="animate-pulse"
+                  fill="url(#corridor-pavers)"
+                  opacity="0.6"
                 />
 
                 {/* Corner chamber reinforced buttresses */}
@@ -456,49 +454,30 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                     cx={v.x}
                     cy={v.y}
                     r="2.8"
-                    fill="#064e3b"
-                    stroke="#34d399"
+                    fill="#1b4332"
+                    stroke="#2d6a4f"
                     strokeWidth="0.8"
                   />
                 ))}
 
-                {/* Grand Chamber Circular Dais & Concentric Magical Runes */}
+                {/* Chamber Circular Dais */}
                 <circle
                   cx={x}
                   cy={y}
-                  r="14.5"
-                  fill="#062d24"
-                  stroke="#059669"
+                  r="13"
+                  fill="#1b4332"
+                  stroke="#2d6a4f"
                   strokeWidth="1.2"
                 />
                 <circle
                   cx={x}
                   cy={y}
-                  r="11"
-                  fill="none"
-                  stroke="#34d399"
-                  strokeWidth="1.2"
-                  strokeDasharray="4 2.5"
-                  className="animate-spin"
-                  style={{ transformOrigin: `${x}px ${y}px`, animationDuration: '9s' }}
+                  r="7.5"
+                  fill="#2d6a4f"
+                  stroke="#52b788"
+                  strokeWidth="1"
                 />
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="6.5"
-                  fill="#047857"
-                  stroke="#6ee7b7"
-                  strokeWidth="1.2"
-                />
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="3"
-                  fill="#a7f3d0"
-                  className="animate-ping"
-                  style={{ transformOrigin: `${x}px ${y}px` }}
-                />
-                <circle cx={x} cy={y} r="2" fill="#ecfdf5" />
+                <circle cx={x} cy={y} r="2.5" fill="#d8f3dc" />
 
                 {/* Carved stone portal lintels pointing toward incoming connections */}
                 {tile.connections.map((dir) => {
@@ -511,22 +490,22 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                       cx={px}
                       cy={py}
                       r="2.2"
-                      fill="#34d399"
+                      fill="#52b788"
                     />
                   );
                 })}
 
                 {/* Interactive Exit Badge: -1⚡ */}
                 {isExit && (
-                  <g transform={`translate(${x}, ${y - 12})`} filter="url(#exit-glow)">
+                  <g transform={`translate(${x}, ${y - 12})`}>
                     <rect
-                      x="-14"
+                      x="-13"
                       y="-6"
-                      width="28"
+                      width="26"
                       height="12"
                       rx="3"
-                      fill="#059669"
-                      stroke="#6ee7b7"
+                      fill="#2d6a4f"
+                      stroke="#2b261f"
                       strokeWidth="1"
                     />
                     <text
@@ -655,7 +634,7 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
               {/* Ace / Target Grand Exit Archway */}
               {tile.isTarget && (
                 <g transform={`translate(${x}, ${y})`}>
-                  <circle r="16" fill="#f59e0b" opacity="0.35" className="animate-pulse" />
+                  <circle r="15" fill="#f59e0b" opacity="0.3" />
                   <circle r="12" fill="#ffd166" stroke="#78350f" strokeWidth="1.8" />
                   <path
                     d="M -6,5 L -6,-1 A 6,6 0 0,1 6,-1 L 6,5 Z"
@@ -718,9 +697,9 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
                     width="24"
                     height="12"
                     rx="3"
-                    fill="#15803d"
-                    stroke="#86efac"
-                    strokeWidth="0.8"
+                    fill="#2d6a4f"
+                    stroke="#2b261f"
+                    strokeWidth="1"
                   />
                   <text
                     x="0"
@@ -755,7 +734,7 @@ export const TunnelGrid: React.FC<TunnelGridProps> = ({
           pointerEvents="none"
           className="transition-transform duration-300 ease-out"
         >
-          <circle r="14" fill="#f59e0b" opacity="0.35" className="animate-ping" />
+          <circle r="13" fill="#f59e0b" opacity="0.3" />
           <circle r="11" fill="#2d6a4f" stroke="#fef08a" strokeWidth="2" />
           <circle cx="0" cy="-3" r="3.5" fill="#fde047" />
           <path d="M -4.5,6 C -4.5,2 4.5,2 4.5,6 Z" fill="#f4edd9" />

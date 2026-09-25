@@ -163,7 +163,7 @@ export default function App() {
     };
   }, []);
 
-  // Trigger exhaustion sequence: reveals the goal hex on the map immediately, then displays popup after delay
+  // Trigger exhaustion sequence: reveals the goal hex on the map immediately, but DEFERS game over if free moves remain!
   const triggerExhaustionSequence = useCallback(
     (tilesMap?: Map<string, HexTile>, delayMs = 1800) => {
       if (isWon) return;
@@ -179,6 +179,17 @@ export default function App() {
         return { ...prev, tiles: nextTiles };
       });
 
+      // If the player still has Free Moves remaining, DO NOT trigger Game Over!
+      // This allows the player to use their final adrenaline burst of momentum to reach safety or the secret tunnel!
+      if (freeMoves > 0) {
+        sounds.playBonus();
+        setStatusMessage(
+          `⚠️ Energy sapped to 0⚡! But you have ${freeMoves} Free Move bonus remaining! Use your last burst of momentum to reach safety or the Secret Tunnel!`
+        );
+        isPendingExhaustionRef.current = false;
+        return;
+      }
+
       sounds.playHazard();
       setStatusMessage(
         `Expedition exhausted! The Secret Tunnel Entrance has been revealed at (${mapData.goalCoord.col}, ${mapData.goalCoord.row}).`
@@ -191,7 +202,7 @@ export default function App() {
         setIsLost(true);
       }, delayMs);
     },
-    [isWon, mapData.goalCoord.col, mapData.goalCoord.row]
+    [isWon, freeMoves, mapData.goalCoord.col, mapData.goalCoord.row]
   );
 
   // Reset / New Game
@@ -1158,9 +1169,25 @@ export default function App() {
     );
   };
 
+  // Check if player in Level 2 can manually draw
+  const canDrawTunnelCard = useMemo(() => {
+    if (currentLevel !== 2 || isWon || isLost || Boolean(eventPrompt)) return false;
+    const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
+    const tile = tunnelMap.tiles.get(currentKey);
+    return Boolean(
+      tile &&
+      !tile.exitsCarved &&
+      !tile.isDeadEnd &&
+      !tile.isTarget &&
+      tunnelMap.deck.length > 0
+    );
+  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt]);
+
   // Interactive exits available from current player tile in Level 2
+  // When in an unsurveyed chamber or awaiting delve card draw (after enter or after JQK),
+  // the ONLY action is to Draw Delve Card. Exits are inactive until card is drawn!
   const tunnelInteractiveExits = useMemo(() => {
-    if (currentLevel !== 2 || isWon || isLost) return [];
+    if (currentLevel !== 2 || isWon || isLost || canDrawTunnelCard) return [];
     const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
     const currentTile = tunnelMap.tiles.get(currentKey);
     if (!currentTile) return [];
@@ -1187,7 +1214,7 @@ export default function App() {
       }
     }
     return exits;
-  }, [currentLevel, tunnelMap.playerCoord, tunnelMap.tiles, isWon, isLost]);
+  }, [currentLevel, tunnelMap.playerCoord, tunnelMap.tiles, isWon, isLost, canDrawTunnelCard]);
 
   // Count of illuminated / explored tunnel tiles
   const litTunnelCount = useMemo(() => {
@@ -1201,6 +1228,11 @@ export default function App() {
   // Click on a tile in Level 2 (step into lit exit or dead-end retrace)
   const handleTunnelTileClick = (targetCoord: HexCoord) => {
     if (currentLevel !== 2 || isWon || isLost) return;
+
+    if (canDrawTunnelCard) {
+      setStatusMessage('Unsurveyed chamber! Tap "Draw Delve Card" below to carve corridor exits.');
+      return;
+    }
 
     // If user clicked directly on an intermediate hallway tile, resolve it to the destination chamber
     let resolvedTarget = targetCoord;
@@ -1316,10 +1348,12 @@ export default function App() {
 
     // Target tile is an unexplored, uncarved chamber:
     // Prompt the player to draw a Hearts card to survey exits!
+    // Note: If energy reaches 0 upon entering, player gets a chance to draw their delve card
+    // (a Treasure card Q♥/K♥ can restore energy and save the delve!)
     if (nextEnergy <= 0) {
-      sounds.playHazard();
-      setIsLost(true);
-      setStatusMessage('Energy exhausted entering the dark chamber! Delve lost.');
+      setStatusMessage(
+        `⚠️ Entered chamber on your last breath (0⚡)! Draw a Hearts Delve Card — an ancient Treasure Vault can still save you!`
+      );
     } else {
       setStatusMessage(
         `Entered unexplored chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Draw a Hearts Delve Card to survey exits ahead!`
@@ -1391,13 +1425,13 @@ export default function App() {
         title: 'Subterranean Trap Chamber! (J♥)',
         category: 'Hazard',
         description:
-          'A pressure plate clicks! Spring-loaded scythe blades slice from the dark walls. Roll the Fate Die: Odd = -2 Energy, Even = Safe dodge! After resolving, draw a new card for exits.',
+          'A pressure plate clicks! Spring-loaded scythe blades slice from the dark walls. Roll the Fate Die: Odd = -2 Energy, Even = Safe dodge! After resolving, tap Draw Delve Card to continue.',
         type: 'tunnel_trap',
         coord: tunnelMap.playerCoord,
         statBadge: 'J♥ Trap: Odd = -2 ⚡, Even = Safe',
       });
       setStatusMessage(
-        'Drawn Jack of Hearts — Trap Chamber! Dodge the blades, then draw for exits!'
+        'Drawn Jack of Hearts — Trap Chamber! Dodge the blades, then Draw Delve Card!'
       );
     } else if (nextCard.effect === 'treasure') {
       sounds.playBonus();
@@ -1405,23 +1439,33 @@ export default function App() {
         title: `Ancient Treasure Vault! (${nextCard.rank}♥)`,
         category: 'Discovery',
         description:
-          'You uncover an ancient stone strongbox glowing with subterranean mana! Roll the Fate Die to restore 1 to 6 Energy. After resolving, draw a new card for exits.',
+          'You uncover an ancient stone strongbox glowing with subterranean mana! Roll the Fate Die to restore 1 to 6 Energy. After resolving, tap Draw Delve Card to continue.',
         type: 'tunnel_treasure',
         coord: tunnelMap.playerCoord,
         statBadge: `${nextCard.rank}♥ Vault: Roll D6 for +1 to +6 ⚡`,
       });
       setStatusMessage(
-        `Drawn ${nextCard.name} — Treasure Vault discovered! Collect reward, then draw for exits!`
+        `Drawn ${nextCard.name} — Treasure Vault discovered! Collect reward, then Draw Delve Card!`
       );
     } else if (nextCard.effect === 'dead_end') {
       sounds.playHazard();
       setStatusMessage(
         `Drawn ${nextCard.name} — Dead end cave-in! Rockfall blocks the passage ahead. Retrace steps back along the corridor.`
       );
+      if (energy <= 0) {
+        sounds.playHazard();
+        setIsLost(true);
+        setStatusMessage('Energy exhausted in a subterranean dead end! The delve is lost.');
+      }
     } else {
       setStatusMessage(
         `Drawn ${nextCard.name}: ${carveResult.openedCoords.length} corridor exits carved!`
       );
+      if (energy <= 0) {
+        sounds.playHazard();
+        setIsLost(true);
+        setStatusMessage('Energy exhausted! With no energy left to explore the newly carved passages, the delve is lost.');
+      }
     }
 
     setTunnelMap((prev) => ({
@@ -1444,20 +1488,6 @@ export default function App() {
   }, [mapData.tiles]);
 
   const totalHexes = GRID_COLS * GRID_ROWS;
-
-  // Check if player in Level 2 can manually draw
-  const canDrawTunnelCard = useMemo(() => {
-    if (currentLevel !== 2 || isWon || isLost || Boolean(eventPrompt)) return false;
-    const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
-    const tile = tunnelMap.tiles.get(currentKey);
-    return Boolean(
-      tile &&
-      !tile.exitsCarved &&
-      !tile.isDeadEnd &&
-      !tile.isTarget &&
-      tunnelMap.deck.length > 0
-    );
-  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt]);
 
   return (
     <div className="flex flex-col h-dvh w-full max-w-lg mx-auto bg-[#ded4bf] text-[#2b261f] select-none overflow-hidden font-mono border-x-2 border-[#2b261f] shadow-2xl relative">
@@ -1531,48 +1561,104 @@ export default function App() {
           onModifyDie={handleModifyDie}
         />
       ) : (
-        <div className="bg-[#1c1917] border-t-2 border-[#2b261f] p-2 text-stone-200 space-y-2 select-none flex-shrink-0">
-          {/* Card Display with Heart theme and Deck Tracker */}
-          <CardDisplay
-            card={tunnelMap.activeCard}
-            deckCount={tunnelMap.deck.length}
-            discardCards={tunnelMap.discard}
-            onDrawCard={handleTunnelDrawCard}
-            canDraw={canDrawTunnelCard}
-            activeExitDirs={
-              tunnelMap.tiles.get(
-                `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`
-              )?.carvedExitDirs
-            }
-          />
+        <footer className="shrink-0 bg-[#e8deca] border-t-2 border-[#2b261f] select-none flex flex-col shadow-lg z-30">
+          <div className="p-2 flex flex-col gap-2">
+            {/* Card Display with Heart theme and Deck Tracker */}
+            <CardDisplay
+              card={tunnelMap.activeCard}
+              deckCount={tunnelMap.deck.length}
+              discardCards={tunnelMap.discard}
+              onDrawCard={handleTunnelDrawCard}
+              canDraw={canDrawTunnelCard}
+              activeExitDirs={
+                tunnelMap.tiles.get(
+                  `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`
+                )?.carvedExitDirs
+              }
+            />
 
-          {/* Available Exits Quick Buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-            <span className="text-[10px] uppercase font-bold text-stone-400 flex-shrink-0">
-              Exits:
-            </span>
-            {tunnelInteractiveExits.length > 0 ? (
-              tunnelInteractiveExits.map((exitCoord, idx) => {
-                // Find precise hex direction
-                const bearing = getAdjacentBearing(tunnelMap.playerCoord, exitCoord);
-                return (
-                  <button
-                    key={`exit-${exitCoord.col}-${exitCoord.row}-${idx}`}
-                    onClick={() => handleTunnelTileClick(exitCoord)}
-                    className="flex-1 py-1.5 px-2 bg-gradient-to-r from-emerald-800 to-emerald-700 hover:from-emerald-700 hover:to-emerald-600 active:scale-95 text-emerald-100 font-bold text-xs rounded border border-emerald-500 shadow flex items-center justify-center gap-1 cursor-pointer transition-all"
-                  >
-                    <span>{bearing}</span>
-                    <span className="text-[10px] text-emerald-300">({exitCoord.col},{exitCoord.row})</span>
-                  </button>
-                );
-              })
+            {/* Primary Action Buttons Area: Consistent with Level 1 bottom CTA */}
+            {canDrawTunnelCard ? (
+              /* When in an unsurveyed chamber or awaiting next card (after entering or after JQK),
+                 the ONLY action is Draw Delve Card */
+              <button
+                id="btn-draw-delve-card"
+                onClick={handleTunnelDrawCard}
+                className="w-full py-2 px-3 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white border-2 border-[#2b261f] rounded-lg font-mono font-black text-xs sm:text-sm tracking-wider uppercase shadow-md flex items-center justify-center gap-2 cursor-pointer transition-transform active:translate-y-0.5"
+              >
+                <span className="text-sm">♥</span>
+                <span>DRAW DELVE CARD</span>
+                <span className="text-[10px] text-[#bbf7d0] font-bold bg-[#1b4332] px-2 py-0.5 rounded border border-[#15803d] ml-1">
+                  {tunnelMap.deck.length} IN DECK
+                </span>
+              </button>
+            ) : tunnelInteractiveExits.length > 0 ? (
+              /* When exits are carved, show exits as primary action buttons matching Level 1 style. */
+              <div className="flex items-center gap-1.5 w-full">
+                {tunnelInteractiveExits.map((exitCoord, idx) => {
+                  const bearing = getAdjacentBearing(tunnelMap.playerCoord, exitCoord);
+                  const exitKey = `${exitCoord.col},${exitCoord.row}`;
+                  const exitTile = tunnelMap.tiles.get(exitKey);
+                  const isTarget = Boolean(exitTile?.isTarget);
+                  const currentTile = tunnelMap.tiles.get(
+                    `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`
+                  );
+                  const isDeadEnd = Boolean(currentTile?.isDeadEnd);
+                  const isRetrace = Boolean(exitTile?.visited && !isTarget);
+
+                  if (isTarget) {
+                    return (
+                      <button
+                        key={`exit-${exitCoord.col}-${exitCoord.row}-${idx}`}
+                        onClick={() => handleTunnelTileClick(exitCoord)}
+                        className="flex-1 py-2 px-3 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white border-2 border-[#2b261f] rounded-lg font-mono font-black text-xs sm:text-sm tracking-wider uppercase shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:translate-y-0.5"
+                      >
+                        <span>🏆 ESCAPE: {bearing}</span>
+                        <span className="text-[10px] font-mono font-bold text-[#bbf7d0] bg-[#1b4332] px-1.5 py-0.5 rounded border border-[#15803d] ml-auto">
+                          -1⚡
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  if (isDeadEnd) {
+                    return (
+                      <button
+                        key={`exit-retrace-${exitCoord.col}-${exitCoord.row}-${idx}`}
+                        onClick={() => handleTunnelTileClick(exitCoord)}
+                        className="flex-1 py-2 px-2.5 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white border-2 border-[#2b261f] rounded-lg font-mono font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:translate-y-0.5"
+                      >
+                        <span className="text-xs">↩</span>
+                        <span>Retrace: {bearing}</span>
+                        <span className="text-[10px] font-mono font-bold text-[#bbf7d0] bg-[#1b4332] px-1.5 py-0.5 rounded border border-[#15803d] ml-auto">
+                          -1⚡
+                        </span>
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={`exit-${exitCoord.col}-${exitCoord.row}-${idx}`}
+                      onClick={() => handleTunnelTileClick(exitCoord)}
+                      className="flex-1 py-2 px-2 bg-[#2d6a4f] hover:bg-[#23533e] active:bg-[#1b4332] text-white border-2 border-[#2b261f] rounded-lg font-mono font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-center gap-1.5 cursor-pointer transition-transform active:translate-y-0.5"
+                    >
+                      {isRetrace && <span className="text-xs">↩</span>}
+                      <span>{bearing}</span>
+                      <span className="text-[10px] font-mono font-bold text-[#bbf7d0] bg-[#1b4332] px-1.5 py-0.5 rounded border border-[#15803d] ml-auto">
+                        -1⚡
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
-              <span className="text-[11px] text-stone-400 italic">
-                {canDrawTunnelCard ? 'Draw Delve Card above to reveal exits!' : 'No exits available.'}
-              </span>
+              <div className="w-full py-2 px-3 text-center text-xs font-mono text-[#786e5e] italic">
+                No exits available.
+              </div>
             )}
           </div>
-        </div>
+        </footer>
       )}
 
       {/* Rules Modal */}
@@ -1621,7 +1707,7 @@ export default function App() {
           {currentLevel === 1 && !isLost && (
             <button
               onClick={handleDescendToLevel2}
-              className="px-2.5 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black rounded border border-[#2b261f] cursor-pointer shadow-sm"
+              className="px-2.5 py-1 bg-[#2d6a4f] hover:bg-[#23533e] text-white font-bold rounded border border-[#2b261f] cursor-pointer shadow-xs"
             >
               Descend Level 2 ⬇
             </button>
