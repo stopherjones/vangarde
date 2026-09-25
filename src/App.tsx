@@ -43,6 +43,7 @@ import {
   ExplorationCard,
 } from './utils/explorationDeck';
 import { Level2ExplorationBar } from './components/Level2ExplorationBar';
+import { ChamberExplorationModal } from './components/ChamberExplorationModal';
 import { Level2VictoryModal } from './components/Level2VictoryModal';
 import { FlowerHexGrid } from './components/FlowerHexGrid';
 import { Header } from './components/Header';
@@ -80,10 +81,12 @@ export default function App() {
   const [comparisonCard, setComparisonCard] = useState<ExplorationCard | null>(null);
   const [drawnExplorationCard, setDrawnExplorationCard] = useState<ExplorationCard | null>(null);
   const [explorationStreak, setExplorationStreak] = useState<number>(0);
+  const [activePrediction, setActivePrediction] = useState<'higher' | 'lower' | null>(null);
   const [pendingExplorationChoice, setPendingExplorationChoice] = useState<
     'higher_lower' | 'face_gamble' | null
   >(null);
   const [explorationResultText, setExplorationResultText] = useState<string | null>(null);
+  const [showChamberExplorationModal, setShowChamberExplorationModal] = useState<boolean>(false);
 
   // Level 3 State
   const [level3Floor, setLevel3Floor] = useState<number>(1);
@@ -257,6 +260,7 @@ export default function App() {
     setExplorationStreak(0);
     setPendingExplorationChoice(null);
     setExplorationResultText(null);
+    setShowChamberExplorationModal(false);
     setLevel3Floor(1);
 
     const newMap = generateMap();
@@ -1425,8 +1429,10 @@ export default function App() {
 
     // Target tile is an unexplored, uncarved chamber:
     // Prompt the player for the Higher / Lower chamber exploration prediction!
+    setDrawnExplorationCard(null);
     setPendingExplorationChoice('higher_lower');
     setExplorationResultText('Predict if the next exploration card is HIGHER or LOWER than your base card!');
+    setShowChamberExplorationModal(true);
 
     if (nextEnergy <= 0) {
       setStatusMessage(
@@ -1434,7 +1440,7 @@ export default function App() {
       );
     } else {
       setStatusMessage(
-        `Entered chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Predict Higher or Lower than ${comparisonCard?.rank || ''}${comparisonCard?.suit || ''}, then draw Delve Card!`
+        `Entered chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Predict Higher or Lower than ${comparisonCard?.rank || ''}${comparisonCard?.suit || ''} in the chamber survey popup!`
       );
     }
 
@@ -1559,6 +1565,8 @@ export default function App() {
 
   // Exploration Deck: Player predicts Higher or Lower when entering a chamber
   const handleExplorationPredict = (prediction: 'higher' | 'lower') => {
+    setActivePrediction(prediction);
+
     if (explorationDeck.length === 0) {
       // Reshuffle discard or create fresh deck if empty
       const fresh = createExplorationDeck();
@@ -1576,22 +1584,25 @@ export default function App() {
     if (drawn.isAceOfSpades) {
       sounds.playVictory();
       setLevel2TargetFound(true);
+      setShowChamberExplorationModal(false);
       setShowLevel2VictoryModal(true);
       setPendingExplorationChoice(null);
+      setActivePrediction(null);
       setExplorationResultText('♠ ACE OF SPADES REVEALED! The Gateway to Level 3 is open!');
       setStatusMessage('THE ACE OF SPADES! You found the gateway descending to Level 3!');
       return;
     }
 
     // If drawn card is an Honor card (J, Q, K, or non-Spade Ace):
+    // NOTE: Drawing JQKA does NOT affect your streak or your guess!
     if (drawn.isHonor) {
       sounds.playBonus();
       setPendingExplorationChoice('face_gamble');
       setExplorationResultText(
-        `Honor card drawn: ${drawn.rank} of ${drawn.suit}! Choose: Discard & redraw base card, OR gamble on drawing for the Ace of Spades (A♠)!`
+        `Honor card drawn: ${drawn.rank} of ${drawn.suit}! Your "${prediction.toUpperCase()}" call and streak are preserved. Choose: Discard base (${comparisonCard?.rank || ''}${comparisonCard?.suit || ''}) for a fresh card, OR draw again keeping your "${prediction.toUpperCase()}" guess seeking the Ace of Spades (A♠)!`
       );
       setStatusMessage(
-        `Drawn ${drawn.rank}${drawn.suit}! Discard & redraw base, or draw another card for A♠!`
+        `Honor card ${drawn.rank}${drawn.suit} drawn! Streak & "${prediction.toUpperCase()}" guess preserved.`
       );
       return;
     }
@@ -1606,6 +1617,7 @@ export default function App() {
       setExplorationStreak(0);
       setComparisonCard(drawn);
       setPendingExplorationChoice(null);
+      setActivePrediction(null);
       setExplorationResultText(
         `Pair drawn (${drawn.rank}${drawn.suit} matches ${comparisonCard?.rank || baseVal})! Push — no energy change. Streak reset to 0.`
       );
@@ -1626,6 +1638,7 @@ export default function App() {
         setEnergy((prev) => Math.min(prev + energyReward, MAX_ENERGY));
         setComparisonCard(drawn);
         setPendingExplorationChoice(null);
+        setActivePrediction(null);
         setExplorationResultText(
           `Correct! ${drawn.rank}${drawn.suit} is ${isHigher ? 'Higher' : 'Lower'} than ${baseVal}. Streak: +${nextStreak} (+${energyReward} ⚡).`
         );
@@ -1642,6 +1655,7 @@ export default function App() {
         setEnergy(remainingE);
         setComparisonCard(drawn);
         setPendingExplorationChoice(null);
+        setActivePrediction(null);
         setExplorationResultText(
           `Wrong call! ${drawn.rank}${drawn.suit} is ${isHigher ? 'Higher' : 'Lower'} than ${baseVal}. Streak: ${nextStreak} (-${energyPenalty} ⚡).`
         );
@@ -1658,24 +1672,26 @@ export default function App() {
     }
   };
 
-  // Honor Card Choice: Discard & Redraw vs. Gamble for Ace of Spades
+  // Honor Card Choice: Discard & Redraw Base vs. Draw Again (keeping guess & streak)
   const handleFaceChoice = (choice: 'discard_redraw' | 'gamble_ace') => {
     if (choice === 'discard_redraw') {
-      // Discard and draw a fresh comparison card from the exploration deck
+      // Discard current base card and draw a fresh base comparison card from the exploration deck
       const currentDeck = [...explorationDeck];
       const { card: freshBase, remainingDeck } = drawInitialComparisonCard(currentDeck);
       setExplorationDeck(remainingDeck);
       setComparisonCard(freshBase);
+      setDrawnExplorationCard(null);
       setPendingExplorationChoice(null);
+      setActivePrediction(null);
       sounds.playBonus();
       setExplorationResultText(
-        `Discarded honor card. New base card established: ${freshBase.rank} of ${freshBase.suit}.`
+        `Discarded previous base. Fresh base card established: ${freshBase.rank} of ${freshBase.suit}. Streak remains unchanged (${explorationStreak >= 0 ? `+${explorationStreak}` : explorationStreak}).`
       );
       setStatusMessage(
-        `Drew new base card: ${freshBase.rank} of ${freshBase.suit}. Chamber cleared!`
+        `Discarded base! New base card: ${freshBase.rank} of ${freshBase.suit}. Streak preserved.`
       );
     } else {
-      // Gamble: Draw another card immediately seeking Ace of Spades
+      // Draw Again: keeping guess and streak status against current base card!
       const currentDeck = [...explorationDeck];
       if (currentDeck.length === 0) {
         setExplorationDeck(createExplorationDeck());
@@ -1684,23 +1700,91 @@ export default function App() {
       setExplorationDeck(currentDeck);
       setDrawnExplorationCard(gambleCard);
 
+      // Check for Ace of Spades (Instant Level 3 Discovery!)
       if (gambleCard.isAceOfSpades) {
         sounds.playVictory();
         setLevel2TargetFound(true);
+        setShowChamberExplorationModal(false);
         setShowLevel2VictoryModal(true);
         setPendingExplorationChoice(null);
+        setActivePrediction(null);
         setExplorationResultText('♠ ACE OF SPADES DRAWN! Instant Victory and Gateway to Level 3!');
         setStatusMessage('JACKPOT! Ace of Spades drawn on the gamble! Gateway to Level 3 is open!');
-      } else {
-        // Discarded, keep existing comparison card
-        sounds.playClick();
-        setPendingExplorationChoice(null);
+        return;
+      }
+
+      // If ANOTHER honor card is drawn (e.g. Jack then King or Queen):
+      if (gambleCard.isHonor) {
+        sounds.playBonus();
+        setPendingExplorationChoice('face_gamble');
+        const guessLabel = (activePrediction || 'higher').toUpperCase();
         setExplorationResultText(
-          `Gamble draw: ${gambleCard.rank} of ${gambleCard.suit} (not A♠). Card discarded; base card remains ${comparisonCard?.rank}${comparisonCard?.suit}.`
+          `Another honor card drawn: ${gambleCard.rank} of ${gambleCard.suit}! Your "${guessLabel}" call and streak remain intact. Discard base (${comparisonCard?.rank}${comparisonCard?.suit}) or draw again for A♠!`
         );
         setStatusMessage(
-          `Gamble missed (${gambleCard.rank}${gambleCard.suit}). Base card kept. Chamber cleared!`
+          `Drew ${gambleCard.rank}${gambleCard.suit}! "${guessLabel}" guess & streak still active.`
         );
+        return;
+      }
+
+      // Numbered card drawn: resolve against the base card using the existing active prediction!
+      const prediction = activePrediction || 'higher';
+      const baseVal = comparisonCard ? comparisonCard.value : 7;
+      const drawnVal = gambleCard.value;
+
+      if (drawnVal === baseVal) {
+        sounds.playClick();
+        setExplorationStreak(0);
+        setComparisonCard(gambleCard);
+        setPendingExplorationChoice(null);
+        setActivePrediction(null);
+        setExplorationResultText(
+          `Drew ${gambleCard.rank}${gambleCard.suit} matching base ${baseVal}! Pair push — no energy change. Streak reset to 0.`
+        );
+        setStatusMessage(`Draw again resulted in a pair (${gambleCard.rank}${gambleCard.suit})! Push.`);
+      } else {
+        const isHigher = drawnVal > baseVal;
+        const isCorrect =
+          (prediction === 'higher' && isHigher) || (prediction === 'lower' && !isHigher);
+
+        if (isCorrect) {
+          sounds.playBonus();
+          const nextStreak = explorationStreak >= 0 ? explorationStreak + 1 : 1;
+          setExplorationStreak(nextStreak);
+          const energyReward = nextStreak;
+          setEnergy((prev) => Math.min(prev + energyReward, MAX_ENERGY));
+          setComparisonCard(gambleCard);
+          setPendingExplorationChoice(null);
+          setActivePrediction(null);
+          setExplorationResultText(
+            `Correct "${prediction.toUpperCase()}" call! Drew ${gambleCard.rank}${gambleCard.suit} vs base ${baseVal}. Streak: +${nextStreak} (+${energyReward} ⚡).`
+          );
+          setStatusMessage(
+            `Drew ${gambleCard.rank}${gambleCard.suit} — correct "${prediction}"! Streak +${nextStreak} (+${energyReward}⚡).`
+          );
+        } else {
+          sounds.playHazard();
+          const nextStreak = explorationStreak <= 0 ? explorationStreak - 1 : -1;
+          setExplorationStreak(nextStreak);
+          const energyPenalty = Math.abs(nextStreak);
+          const remainingE = Math.max(0, energy - energyPenalty);
+          setEnergy(remainingE);
+          setComparisonCard(gambleCard);
+          setPendingExplorationChoice(null);
+          setActivePrediction(null);
+          setExplorationResultText(
+            `Wrong call! Drew ${gambleCard.rank}${gambleCard.suit} vs base ${baseVal} (called ${prediction.toUpperCase()}). Streak: ${nextStreak} (-${energyPenalty} ⚡).`
+          );
+          setStatusMessage(
+            `Drew ${gambleCard.rank}${gambleCard.suit} — wrong call! Streak ${nextStreak} (-${energyPenalty}⚡).`
+          );
+
+          if (remainingE <= 0) {
+            sounds.playHazard();
+            setIsLost(true);
+            setStatusMessage('Energy exhausted in the subterranean dark! The delve is lost.');
+          }
+        }
       }
     }
   };
@@ -1810,17 +1894,14 @@ export default function App() {
       ) : currentLevel === 2 ? (
         <footer className="shrink-0 bg-[#e8deca] border-t-2 border-[#2b261f] select-none flex flex-col shadow-lg z-30">
           <div className="p-2 flex flex-col gap-2">
-            {/* Level 2 Exploration Higher/Lower Bar */}
+            {/* Level 2 Exploration Base Card Status Bar */}
             <Level2ExplorationBar
               comparisonCard={comparisonCard}
               drawnCard={drawnExplorationCard}
               deckCount={explorationDeck.length}
               streak={explorationStreak}
-              pendingChoice={pendingExplorationChoice}
-              drawnCardResultText={explorationResultText}
-              onPredict={handleExplorationPredict}
-              onFaceChoice={handleFaceChoice}
-              disabled={isWon || isLost}
+              hasPendingPrediction={pendingExplorationChoice !== null}
+              onOpenExplorationModal={() => setShowChamberExplorationModal(true)}
             />
 
             {/* Card Display with Heart theme and Deck Tracker */}
@@ -1931,6 +2012,22 @@ export default function App() {
           </div>
         </footer>
       )}
+
+      {/* Level 2 Chamber Exploration Modal (Higher / Lower on chamber entry) */}
+      <ChamberExplorationModal
+        isOpen={showChamberExplorationModal}
+        baseCard={comparisonCard}
+        drawnCard={drawnExplorationCard}
+        deckCount={explorationDeck.length}
+        streak={explorationStreak}
+        activePrediction={activePrediction}
+        pendingChoice={pendingExplorationChoice}
+        resultMessage={explorationResultText}
+        chamberCoord={tunnelMap.playerCoord}
+        onPredict={handleExplorationPredict}
+        onFaceChoice={handleFaceChoice}
+        onDismiss={() => setShowChamberExplorationModal(false)}
+      />
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
