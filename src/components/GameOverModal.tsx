@@ -11,7 +11,7 @@ interface GameOverModalProps {
   totalTowers: number;
   onRestart: () => void;
   onReviewMap?: () => void;
-  level?: 1 | 2;
+  level?: 1 | 2 | 3;
   cardsDrawn?: number;
   tunnelsCarved?: number;
 }

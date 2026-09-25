@@ -36,8 +36,15 @@ import {
 import {
   createShuffledHeartsDeck,
   TunnelCard,
-  isStandardChamber,
 } from './utils/delveDeck';
+import {
+  createExplorationDeck,
+  drawInitialComparisonCard,
+  ExplorationCard,
+} from './utils/explorationDeck';
+import { Level2ExplorationBar } from './components/Level2ExplorationBar';
+import { Level2VictoryModal } from './components/Level2VictoryModal';
+import { FlowerHexGrid } from './components/FlowerHexGrid';
 import { Header } from './components/Header';
 import { HexGrid } from './components/HexGrid';
 import { TunnelGrid } from './components/TunnelGrid';
@@ -47,7 +54,6 @@ import { RulesModal } from './components/RulesModal';
 import { EventModal } from './components/EventModal';
 import { GameOverModal } from './components/GameOverModal';
 import { LevelTransitionModal } from './components/LevelTransitionModal';
-import { UtopiaEncounterModal } from './components/UtopiaEncounterModal';
 
 const MAX_ENERGY = 30;
 
@@ -65,11 +71,22 @@ export default function App() {
   const [level2Steps, setLevel2Steps] = useState<number>(0);
   const [level2CardsDrawn, setLevel2CardsDrawn] = useState<number>(0);
   const [level2TargetFound, setLevel2TargetFound] = useState<boolean>(false);
-  const [activeUtopiaEncounter, setActiveUtopiaEncounter] = useState<{
-    card: TunnelCard;
-    chamberCoord: HexCoord;
-    headingFrom?: DirectionIndex;
-  } | null>(null);
+  const [showLevel2VictoryModal, setShowLevel2VictoryModal] = useState<boolean>(false);
+
+  // Level 2 Exploration Deck (♠, ♣, ♦ Higher/Lower and Ace of Spades hunt)
+  const [explorationDeck, setExplorationDeck] = useState<ExplorationCard[]>(() =>
+    createExplorationDeck()
+  );
+  const [comparisonCard, setComparisonCard] = useState<ExplorationCard | null>(null);
+  const [drawnExplorationCard, setDrawnExplorationCard] = useState<ExplorationCard | null>(null);
+  const [explorationStreak, setExplorationStreak] = useState<number>(0);
+  const [pendingExplorationChoice, setPendingExplorationChoice] = useState<
+    'higher_lower' | 'face_gamble' | null
+  >(null);
+  const [explorationResultText, setExplorationResultText] = useState<string | null>(null);
+
+  // Level 3 State
+  const [level3Floor, setLevel3Floor] = useState<number>(1);
 
   // Game Map State (Level 1)
   const [mapData, setMapData] = useState(() => generateMap());
@@ -232,7 +249,15 @@ export default function App() {
     setLevel2Steps(0);
     setLevel2CardsDrawn(0);
     setLevel2TargetFound(false);
-    setActiveUtopiaEncounter(null);
+    setShowLevel2VictoryModal(false);
+    const newExpDeck = createExplorationDeck();
+    setExplorationDeck(newExpDeck);
+    setComparisonCard(null);
+    setDrawnExplorationCard(null);
+    setExplorationStreak(0);
+    setPendingExplorationChoice(null);
+    setExplorationResultText(null);
+    setLevel3Floor(1);
 
     const newMap = generateMap();
     setMapData(newMap);
@@ -1161,6 +1186,7 @@ export default function App() {
     sounds.playBonus();
     setCurrentLevel(2);
     setShowLevelTransitionModal(false);
+    setShowLevel2VictoryModal(false);
     setReviewingMap(false);
     setIsWon(false);
     setIsLost(false);
@@ -1169,26 +1195,39 @@ export default function App() {
     const newTunnelDeck = createShuffledHeartsDeck();
     const newTunnelMap = createTunnelMap(newTunnelDeck);
 
+    // Initialise 39-card Exploration Deck (♠, ♣, ♦) and draw non-honor starting card
+    const freshExpDeck = createExplorationDeck();
+    const { card: initialBaseCard, remainingDeck: afterInitDeck } =
+      drawInitialComparisonCard(freshExpDeck);
+
+    setExplorationDeck(afterInitDeck);
+    setComparisonCard(initialBaseCard);
+    setDrawnExplorationCard(null);
+    setExplorationStreak(0);
+    setPendingExplorationChoice(null);
+    setExplorationResultText(
+      `Starting exploration card established: ${initialBaseCard.rank} of ${initialBaseCard.suit}.`
+    );
+
     // Initial state: Adventurer begins at starting chamber (5, 11), prompted to draw first delve card
     setTunnelMap(newTunnelMap);
     setCurrentTunnelHeading(2);
     setLevel2Steps(0);
     setLevel2CardsDrawn(0);
     setLevel2TargetFound(false);
-    setActiveUtopiaEncounter(null);
     setStatusMessage(
-      'Descended into Level 2: The Underground Tunnels! Draw a Hearts Delve Card to survey entry chamber (0, 0) and carve corridor exits.'
+      `Descended into Level 2: The Underground Tunnels! Base card is ${initialBaseCard.rank}${initialBaseCard.suit}. Draw a Hearts Delve Card to survey entry chamber and carve corridor exits.`
     );
   };
 
-  // Check if player in Level 2 can manually draw
+  // Check if player in Level 2 can manually draw Hearts Delve card
   const canDrawTunnelCard = useMemo(() => {
     if (
       currentLevel !== 2 ||
       isWon ||
       isLost ||
       Boolean(eventPrompt) ||
-      Boolean(activeUtopiaEncounter)
+      pendingExplorationChoice !== null
     )
       return false;
     const currentKey = `${tunnelMap.playerCoord.col},${tunnelMap.playerCoord.row}`;
@@ -1200,7 +1239,7 @@ export default function App() {
       !tile.isTarget &&
       tunnelMap.deck.length > 0
     );
-  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt, activeUtopiaEncounter]);
+  }, [currentLevel, isWon, isLost, tunnelMap, eventPrompt, pendingExplorationChoice]);
 
   // Interactive exits available from current player tile in Level 2
   // When in an unsurveyed chamber or awaiting delve card draw (after enter or after JQK),
@@ -1233,32 +1272,25 @@ export default function App() {
       }
     }
 
-    // Classify exits into forward (unexplored or target exit) and retreat (already visited)
+    // Include all forward exits and retreat exits (allow going back where you came from)
     const forwardExits: HexCoord[] = [];
     const retreatExits: HexCoord[] = [];
 
     for (const exit of allExits) {
       const exitKey = `${exit.col},${exit.row}`;
       const exitTile = tunnelMap.tiles.get(exitKey);
-      if (exitTile && (!exitTile.visited || exitTile.isTarget)) {
-        forwardExits.push(exit);
-      } else if (exitTile && !exitTile.isDeadEnd) {
-        // Exclude retreating into a known dead-end cave-in
-        retreatExits.push(exit);
+      if (exitTile && !exitTile.isDeadEnd) {
+        if (!exitTile.visited || exitTile.isTarget) {
+          forwardExits.push(exit);
+        } else {
+          // Allow retracing back into previously visited corridor/chamber
+          retreatExits.push(exit);
+        }
       }
     }
 
-    // Remove the retreat option unless forced to by a dead end.
-    // If the current chamber is a dead end or no forward exits are available,
-    // the player is forced to retreat.
-    const isForcedDeadEnd = Boolean(currentTile.isDeadEnd) || forwardExits.length === 0;
-
-    if (!isForcedDeadEnd) {
-      return forwardExits;
-    }
-
-    // In a dead end or when forward paths are exhausted, return retreat exits (or allExits as fallback)
-    return retreatExits.length > 0 ? retreatExits : allExits;
+    // Both forward and retreat options are provided so the player can always retrace
+    return [...forwardExits, ...retreatExits];
   }, [currentLevel, tunnelMap.playerCoord, tunnelMap.tiles, isWon, isLost, canDrawTunnelCard]);
 
   // Count of illuminated / explored tunnel tiles
@@ -1392,16 +1424,17 @@ export default function App() {
     }
 
     // Target tile is an unexplored, uncarved chamber:
-    // Prompt the player to draw a Hearts card to survey exits!
-    // Note: If energy reaches 0 upon entering, player gets a chance to draw their delve card
-    // (a Treasure card Q♥/K♥ can restore energy and save the delve!)
+    // Prompt the player for the Higher / Lower chamber exploration prediction!
+    setPendingExplorationChoice('higher_lower');
+    setExplorationResultText('Predict if the next exploration card is HIGHER or LOWER than your base card!');
+
     if (nextEnergy <= 0) {
       setStatusMessage(
-        `⚠️ Entered chamber on your last breath (0⚡)! Draw a Hearts Delve Card — an ancient Treasure Vault can still save you!`
+        `⚠️ Entered chamber on your last breath (0⚡)! Predict Higher/Lower on base ${comparisonCard?.rank || ''}${comparisonCard?.suit || ''} to gain energy!`
       );
     } else {
       setStatusMessage(
-        `Entered unexplored chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Draw a Hearts Delve Card to survey exits ahead!`
+        `Entered chamber (${resolvedTarget.col}, ${resolvedTarget.row}). Predict Higher or Lower than ${comparisonCard?.rank || ''}${comparisonCard?.suit || ''}, then draw Delve Card!`
       );
     }
 
@@ -1452,37 +1485,6 @@ export default function App() {
     setLevel2CardsDrawn(drawnCount);
 
     const updatedTiles = new Map(tunnelMap.tiles);
-
-    // Standard chamber cards (2, 3, 4, 6, 8, 9, 10) trigger the Utopia Engine encounter!
-    // Corridor exits will be carved upon completing the encounter.
-    if (isStandardChamber(nextCard)) {
-      const currentTile = updatedTiles.get(currentKey);
-      if (currentTile) {
-        currentTile.card = nextCard;
-        if (!currentTile.cardsHistory) currentTile.cardsHistory = [];
-        currentTile.cardsHistory.push(nextCard);
-      }
-
-      setTunnelMap((prev) => ({
-        ...prev,
-        tiles: updatedTiles,
-        deck: updatedDeck,
-        discard: [...prev.discard, nextCard],
-        activeCard: nextCard,
-        cardsDrawnCount: drawnCount,
-      }));
-
-      setActiveUtopiaEncounter({
-        card: nextCard,
-        chamberCoord: tunnelMap.playerCoord,
-        headingFrom: currentTunnelHeading,
-      });
-
-      setStatusMessage(
-        `Entered standard chamber: ${nextCard.name}! Complete the Utopia Engine alignment grid encounter to carve corridor exits.`
-      );
-      return;
-    }
 
     const carveResult = carveCorridorsForTile(
       updatedTiles,
@@ -1555,60 +1557,166 @@ export default function App() {
     }));
   };
 
-  // Complete Utopia Engine Encounter and carve corridors for chamber
-  const handleCompleteUtopiaEncounter = useCallback(() => {
-    if (!activeUtopiaEncounter) return;
-
-    const { card, chamberCoord, headingFrom } = activeUtopiaEncounter;
-    const updatedTiles = new Map(tunnelMap.tiles);
-    const carveResult = carveCorridorsForTile(
-      updatedTiles,
-      chamberCoord,
-      card,
-      headingFrom
-    );
-
-    const currentKey = `${chamberCoord.col},${chamberCoord.row}`;
-    const currentTile = updatedTiles.get(currentKey);
-    if (currentTile) {
-      currentTile.exitsCarved = true;
+  // Exploration Deck: Player predicts Higher or Lower when entering a chamber
+  const handleExplorationPredict = (prediction: 'higher' | 'lower') => {
+    if (explorationDeck.length === 0) {
+      // Reshuffle discard or create fresh deck if empty
+      const fresh = createExplorationDeck();
+      setExplorationDeck(fresh);
     }
 
-    sounds.playVictory();
-    setStatusMessage(
-      `Chamber cleared! Carved ${carveResult.openedCoords.length} corridor exit${
-        carveResult.openedCoords.length !== 1 ? 's' : ''
-      }. Step into an exit (-1 ⚡) to continue.`
-    );
+    const currentDeck = [...explorationDeck];
+    if (currentDeck.length === 0) return;
 
-    setTunnelMap((prev) => ({
-      ...prev,
-      tiles: updatedTiles,
-      activeCard: card,
-    }));
+    const drawn = currentDeck.shift()!;
+    setDrawnExplorationCard(drawn);
+    setExplorationDeck(currentDeck);
 
-    setActiveUtopiaEncounter(null);
-  }, [activeUtopiaEncounter, tunnelMap.tiles]);
+    // If drawn card is Ace of Spades (A♠) -> INSTANT VICTORY / GATEWAY TO LEVEL 3!
+    if (drawn.isAceOfSpades) {
+      sounds.playVictory();
+      setLevel2TargetFound(true);
+      setShowLevel2VictoryModal(true);
+      setPendingExplorationChoice(null);
+      setExplorationResultText('♠ ACE OF SPADES REVEALED! The Gateway to Level 3 is open!');
+      setStatusMessage('THE ACE OF SPADES! You found the gateway descending to Level 3!');
+      return;
+    }
 
-  // Adjust energy during Utopia encounter (reward bonus or combat damage)
-  const handleModifyEnergy = useCallback((delta: number) => {
-    setEnergy((prev) => {
-      if (delta > 0) {
-        return Math.min(prev + delta, MAX_ENERGY);
+    // If drawn card is an Honor card (J, Q, K, or non-Spade Ace):
+    if (drawn.isHonor) {
+      sounds.playBonus();
+      setPendingExplorationChoice('face_gamble');
+      setExplorationResultText(
+        `Honor card drawn: ${drawn.rank} of ${drawn.suit}! Choose: Discard & redraw base card, OR gamble on drawing for the Ace of Spades (A♠)!`
+      );
+      setStatusMessage(
+        `Drawn ${drawn.rank}${drawn.suit}! Discard & redraw base, or draw another card for A♠!`
+      );
+      return;
+    }
+
+    // Numbered card (2 to 10): Compare against comparisonCard
+    const baseVal = comparisonCard ? comparisonCard.value : 7;
+    const drawnVal = drawn.value;
+
+    if (drawnVal === baseVal) {
+      // Pair / Equal rank: Push, no energy change, streak resets to 0
+      sounds.playClick();
+      setExplorationStreak(0);
+      setComparisonCard(drawn);
+      setPendingExplorationChoice(null);
+      setExplorationResultText(
+        `Pair drawn (${drawn.rank}${drawn.suit} matches ${comparisonCard?.rank || baseVal})! Push — no energy change. Streak reset to 0.`
+      );
+      setStatusMessage(
+        `Exploration: Pair drawn (${drawn.rank}${drawn.suit})! Push. No energy change. Chamber explored!`
+      );
+    } else {
+      const isHigher = drawnVal > baseVal;
+      const isCorrect =
+        (prediction === 'higher' && isHigher) || (prediction === 'lower' && !isHigher);
+
+      if (isCorrect) {
+        // Correct prediction
+        sounds.playBonus();
+        const nextStreak = explorationStreak >= 0 ? explorationStreak + 1 : 1;
+        setExplorationStreak(nextStreak);
+        const energyReward = nextStreak;
+        setEnergy((prev) => Math.min(prev + energyReward, MAX_ENERGY));
+        setComparisonCard(drawn);
+        setPendingExplorationChoice(null);
+        setExplorationResultText(
+          `Correct! ${drawn.rank}${drawn.suit} is ${isHigher ? 'Higher' : 'Lower'} than ${baseVal}. Streak: +${nextStreak} (+${energyReward} ⚡).`
+        );
+        setStatusMessage(
+          `Correct call! Drawn ${drawn.rank}${drawn.suit}. Streak +${nextStreak}: Gained +${energyReward} Energy!`
+        );
       } else {
-        const next = Math.max(0, prev + delta);
-        return next;
-      }
-    });
-  }, []);
+        // Incorrect prediction
+        sounds.playHazard();
+        const nextStreak = explorationStreak <= 0 ? explorationStreak - 1 : -1;
+        setExplorationStreak(nextStreak);
+        const energyPenalty = Math.abs(nextStreak);
+        const remainingE = Math.max(0, energy - energyPenalty);
+        setEnergy(remainingE);
+        setComparisonCard(drawn);
+        setPendingExplorationChoice(null);
+        setExplorationResultText(
+          `Wrong call! ${drawn.rank}${drawn.suit} is ${isHigher ? 'Higher' : 'Lower'} than ${baseVal}. Streak: ${nextStreak} (-${energyPenalty} ⚡).`
+        );
+        setStatusMessage(
+          `Wrong call! Drawn ${drawn.rank}${drawn.suit}. Streak ${nextStreak}: Lost -${energyPenalty} Energy!`
+        );
 
-  // Player died in combat during Utopia encounter
-  const handleUtopiaDelveLost = useCallback((reason: string) => {
-    sounds.playHazard();
-    setIsLost(true);
-    setStatusMessage(`Delve lost: ${reason}`);
-    setActiveUtopiaEncounter(null);
-  }, []);
+        if (remainingE <= 0) {
+          sounds.playHazard();
+          setIsLost(true);
+          setStatusMessage('Energy exhausted in the subterranean dark! The delve is lost.');
+        }
+      }
+    }
+  };
+
+  // Honor Card Choice: Discard & Redraw vs. Gamble for Ace of Spades
+  const handleFaceChoice = (choice: 'discard_redraw' | 'gamble_ace') => {
+    if (choice === 'discard_redraw') {
+      // Discard and draw a fresh comparison card from the exploration deck
+      const currentDeck = [...explorationDeck];
+      const { card: freshBase, remainingDeck } = drawInitialComparisonCard(currentDeck);
+      setExplorationDeck(remainingDeck);
+      setComparisonCard(freshBase);
+      setPendingExplorationChoice(null);
+      sounds.playBonus();
+      setExplorationResultText(
+        `Discarded honor card. New base card established: ${freshBase.rank} of ${freshBase.suit}.`
+      );
+      setStatusMessage(
+        `Drew new base card: ${freshBase.rank} of ${freshBase.suit}. Chamber cleared!`
+      );
+    } else {
+      // Gamble: Draw another card immediately seeking Ace of Spades
+      const currentDeck = [...explorationDeck];
+      if (currentDeck.length === 0) {
+        setExplorationDeck(createExplorationDeck());
+      }
+      const gambleCard = currentDeck.shift()!;
+      setExplorationDeck(currentDeck);
+      setDrawnExplorationCard(gambleCard);
+
+      if (gambleCard.isAceOfSpades) {
+        sounds.playVictory();
+        setLevel2TargetFound(true);
+        setShowLevel2VictoryModal(true);
+        setPendingExplorationChoice(null);
+        setExplorationResultText('♠ ACE OF SPADES DRAWN! Instant Victory and Gateway to Level 3!');
+        setStatusMessage('JACKPOT! Ace of Spades drawn on the gamble! Gateway to Level 3 is open!');
+      } else {
+        // Discarded, keep existing comparison card
+        sounds.playClick();
+        setPendingExplorationChoice(null);
+        setExplorationResultText(
+          `Gamble draw: ${gambleCard.rank} of ${gambleCard.suit} (not A♠). Card discarded; base card remains ${comparisonCard?.rank}${comparisonCard?.suit}.`
+        );
+        setStatusMessage(
+          `Gamble missed (${gambleCard.rank}${gambleCard.suit}). Base card kept. Chamber cleared!`
+        );
+      }
+    }
+  };
+
+  // Transition from Level 2 to Level 3 (Flower Hex Grid Floor 1)
+  const handleDescendToLevel3 = () => {
+    sounds.playVictory();
+    setCurrentLevel(3);
+    setShowLevel2VictoryModal(false);
+    setLevel3Floor(1);
+    setIsWon(false);
+    setIsLost(false);
+    setStatusMessage(
+      'Descended to Level 3: Floor 1 of 3! Explore the 19-petal flower machine floor to align the Utopia Engine!'
+    );
+  };
 
   // Derived stats
   const revealedCount = useMemo(() => {
@@ -1661,7 +1769,7 @@ export default function App() {
             onExecuteMove={handleExecuteMove}
             canExecuteMove={diceState.rolled && pathPreview.length > 0 && energy > 0}
           />
-        ) : (
+        ) : currentLevel === 2 ? (
           <TunnelGrid
             tiles={tunnelMap.tiles}
             playerCoord={tunnelMap.playerCoord}
@@ -1669,6 +1777,13 @@ export default function App() {
             interactiveExits={tunnelInteractiveExits}
             energy={energy}
           />
+        ) : (
+          <div className="h-full overflow-y-auto p-2 flex items-center justify-center">
+            <FlowerHexGrid
+              currentFloor={level3Floor}
+              onAdvanceFloor={() => setLevel3Floor((prev) => Math.min(3, prev + 1))}
+            />
+          </div>
         )}
       </main>
 
@@ -1692,9 +1807,22 @@ export default function App() {
           onResetDeviation={handleResetDeviation}
           onModifyDie={handleModifyDie}
         />
-      ) : (
+      ) : currentLevel === 2 ? (
         <footer className="shrink-0 bg-[#e8deca] border-t-2 border-[#2b261f] select-none flex flex-col shadow-lg z-30">
           <div className="p-2 flex flex-col gap-2">
+            {/* Level 2 Exploration Higher/Lower Bar */}
+            <Level2ExplorationBar
+              comparisonCard={comparisonCard}
+              drawnCard={drawnExplorationCard}
+              deckCount={explorationDeck.length}
+              streak={explorationStreak}
+              pendingChoice={pendingExplorationChoice}
+              drawnCardResultText={explorationResultText}
+              onPredict={handleExplorationPredict}
+              onFaceChoice={handleFaceChoice}
+              disabled={isWon || isLost}
+            />
+
             {/* Card Display with Heart theme and Deck Tracker */}
             <CardDisplay
               card={tunnelMap.activeCard}
@@ -1790,27 +1918,34 @@ export default function App() {
             )}
           </div>
         </footer>
+      ) : (
+        /* Level 3 Footer */
+        <footer className="shrink-0 bg-[#e8deca] border-t-2 border-[#2b261f] p-3 text-center select-none shadow-lg z-30">
+          <div className="flex items-center justify-between font-mono text-xs text-[#2b261f]">
+            <span className="font-bold flex items-center gap-1.5">
+              <span>⚙️</span> Level 3 Floor {level3Floor} Active
+            </span>
+            <span className="bg-[#dcfce7] text-[#15803d] px-2 py-0.5 rounded font-black border border-[#86efac]">
+              {energy} ⚡ Energy
+            </span>
+          </div>
+        </footer>
       )}
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
 
-      {/* Utopia Engine Chamber Encounter Modal */}
-      {activeUtopiaEncounter && (
-        <UtopiaEncounterModal
-          card={activeUtopiaEncounter.card}
-          chamberCoord={activeUtopiaEncounter.chamberCoord}
-          headingFrom={activeUtopiaEncounter.headingFrom}
-          energy={energy}
-          maxEnergy={MAX_ENERGY}
-          onModifyEnergy={handleModifyEnergy}
-          onCompleteEncounter={handleCompleteUtopiaEncounter}
-          onDelveLost={handleUtopiaDelveLost}
-        />
-      )}
-
       {/* Interactive Event Prompt Modal (Shrines, Rifts, Traps, Vaults) */}
       <EventModal prompt={eventPrompt} onResolve={handleResolveEvent} />
+
+      {/* Level 2 Victory Modal (Ace of Spades found -> Descend to Level 3) */}
+      {showLevel2VictoryModal && (
+        <Level2VictoryModal
+          remainingEnergy={energy}
+          stepsTaken={level2Steps}
+          onDescendLevel3={handleDescendToLevel3}
+        />
+      )}
 
       {/* Level Transition Modal (Level 1 Complete -> Descend to Level 2) */}
       {showLevelTransitionModal && (

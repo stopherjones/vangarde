@@ -76,9 +76,9 @@ export function getCardDetails(rank: HeartCardRank): Omit<TunnelCard, 'id'> {
       return {
         rank,
         suit: '♥',
-        effect: 'target',
-        name: 'Ace of Hearts — The Subterranean Target',
-        description: 'The ancient vaulted sanctuary and exit back to the surface! Step onto this hex to claim ultimate victory!',
+        effect: 'treasure',
+        name: 'Ace of Hearts — Primordial Vault',
+        description: 'An ancient vaulted sanctum rich with subterranean mana! Roll Fate D6 for bonus Energy. Creates no exits; draw a new card for exits after resolving.',
       };
     case '2':
     case '4':

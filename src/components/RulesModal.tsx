@@ -116,29 +116,36 @@ export const RulesModal: React.FC<RulesModalProps> = ({ isOpen, onClose }) => {
           {/* Level 2: The Underground Tunnels */}
           <div className="space-y-1.5 bg-[#ede4d3] text-[#2b261f] p-2.5 rounded-lg border-2 border-[#2b261f]">
             <div className="font-black uppercase text-[#991b1b] flex items-center gap-1.5 border-b border-[#2b261f]/20 pb-1 text-xs">
-              <span className="text-sm leading-none">♥</span>
-              <span>Level 2: Underground Tunnels & Utopia Engine Encounters</span>
+              <span className="text-sm leading-none">♠ ♣ ♦</span>
+              <span>Level 2: Underground Tunnels & Higher/Lower Exploration</span>
             </div>
             <p className="text-[11px] text-[#443d33]">
-              Carry forward your remaining Energy from Level 1 into the subterranean labyrinth. Survey unexplored chambers by drawing from the Hearts Delve Deck:
+              Carry forward remaining Energy from Level 1 into the subterranean labyrinth. When entering chambers, predict whether the next exploration card will be <strong>Higher or Lower</strong>:
             </p>
             <div className="space-y-1 text-[10.5px]">
               <div className="pl-2 border-l-2 border-[#991b1b]/40 space-y-0.5 text-[#443d33]">
-                <div>• <strong>Ace (A♥):</strong> The Target! Shuffled into the back half of the deck. Reveals the grand Exit Archway. Step onto it to escape and claim victory!</div>
-                <div>• <strong>Standard Chambers (2, 3, 4, 6, 8, 9, 10):</strong> Initiates a <strong>Utopia Engine Encounter</strong>! Roll 3 pairs of dice and place them into a 3×2 grid. Subtract the bottom 3-digit number from the top:</div>
-                <div className="pl-2 space-y-0.5 text-[#5c5346]">
-                  <div>- <strong>Score 0 (Jackpot):</strong> Roll D6 + 4 bonus Energy!</div>
-                  <div>- <strong>Score 1–10 (Good):</strong> Roll D6 + 2 bonus Energy!</div>
-                  <div>- <strong>Score 11–99 (OK):</strong> Roll D6 bonus Energy!</div>
-                  <div>- <strong>Score 100–250 (or -1 to -250):</strong> Low Threat Monster (Defeat with 4, 5, 6 | Lose 1⚡ on 1).</div>
-                  <div>- <strong>Score 251–400 (or -251 to -400):</strong> Medium Threat Monster (Defeat with 5, 6 | Lose 1⚡ on 1, 2).</div>
-                  <div>- <strong>Score 401–555 (or -401 to -555):</strong> High Threat Monster (Defeat with 6 | Lose 1⚡ on 1, 2, 3).</div>
-                </div>
-                <div>• <strong>5 & 7 (Dead Ends):</strong> Tumbled boulders collapse the passage ahead. Retrace steps back along live corridors.</div>
-                <div>• <strong>Jack (J♥ Trap):</strong> Spring blades! Roll D6: Odd = -2 ⚡, Even = Safe dodge.</div>
-                <div>• <strong>Queen & King (Q♥/K♥ Vaults):</strong> Ancient strongbox! Roll D6 for bonus Energy.</div>
+                <div>• <strong>Exploration Deck (♠, ♣, ♦):</strong> 39 cards. Starts on an initial numbered baseline (2 to 10).</div>
+                <div>• <strong>Higher / Lower Call:</strong> Correct call gives +Energy; incorrect call drains -Energy. Streaks are cumulative! (+1, +2, +3... or -1, -2, -3...). Breaking a streak resets it; pairs push with no energy change.</div>
+                <div>• <strong>Honor Cards (J, Q, K, A):</strong> When drawn, choose either to discard and redraw a fresh comparison card, OR gamble on drawing another card immediately seeking the <strong>Ace of Spades (A♠)</strong> for instant victory!</div>
+                <div>• <strong>Ace of Spades (A♠):</strong> Shuffled anywhere in the 39-card deck. Drawing it opens the gateway to Level 3!</div>
+                <div>• <strong>Hearts Delve Deck:</strong> Carves corridor exits (Fork, Chamber, Dead End, Trap, or Vaults). Ace of Hearts now acts as an Ancient Vault.</div>
+                <div>• <strong>Navigation:</strong> Step forward through carved exits (-1 ⚡) or use the retrace direction button to backtrack.</div>
               </div>
-              <div className="text-[#5c5346] pt-0.5">• <strong>Movement:</strong> Step into carved corridor exits (-1 ⚡) to explore deeper into the underground realm.</div>
+            </div>
+          </div>
+
+          {/* Level 3: The 19-Petal Utopia Machine */}
+          <div className="space-y-1.5 bg-[#dcfce7]/60 text-[#2b261f] p-2.5 rounded-lg border-2 border-[#2b261f]">
+            <div className="font-black uppercase text-[#15803d] flex items-center gap-1.5 border-b border-[#2b261f]/20 pb-1 text-xs">
+              <span className="text-sm leading-none">⚙️</span>
+              <span>Level 3: The 19-Petal Utopia Machine Floors</span>
+            </div>
+            <p className="text-[11px] text-[#443d33]">
+              Three floors of 19-tile flower hex grids. Step onto adjacent hexes to flip and reveal machine conduits, resonator pylons, and the central core.
+            </p>
+            <div className="space-y-0.5 text-[10.5px] pl-2 border-l-2 border-[#15803d]/40 text-[#443d33]">
+              <div>• <strong>Utopia Engine Alignment Grid:</strong> Solved at machine nodes to power up floor resonators.</div>
+              <div>• <strong>Three Floors:</strong> Clear resonators and cores across each floor to reactivate the ancient Utopia Engine!</div>
             </div>
           </div>
         </div>

@@ -16,7 +16,7 @@ interface HeaderProps {
   onToggleSound: () => void;
   onOpenRules: () => void;
   onNewGame: () => void;
-  level?: 1 | 2;
+  level?: 1 | 2 | 3;
   level2CardsRemaining?: number;
   level2TargetFound?: boolean;
 }
@@ -59,9 +59,14 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center Title + Active Boons Badges */}
         <div className="flex items-center gap-1.5 font-bold text-xs text-[#2b261f] uppercase font-mono tracking-tight">
           <div className="flex items-center gap-1">
-            {level === 2 ? (
+            {level === 3 ? (
               <>
-                <span className="text-rose-600 text-sm leading-none">♥</span>
+                <span className="text-emerald-700 text-sm leading-none">⚙️</span>
+                <span>Level 3: Utopia Machine</span>
+              </>
+            ) : level === 2 ? (
+              <>
+                <span className="text-slate-900 text-sm leading-none">♠</span>
                 <span>Level 2: Tunnels</span>
               </>
             ) : (
@@ -164,10 +169,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div
           className="flex items-center justify-center gap-1 px-1"
           title={
-            level === 2
+            level === 3
+              ? 'Floor 1 / 3'
+              : level === 2
               ? level2TargetFound
-                ? 'Ace of Hearts Exit Revealed!'
-                : 'Ace of Hearts lurking in Deck!'
+                ? 'Ace of Spades Exit Discovered!'
+                : 'Ace of Spades lurking in Exploration Deck!'
               : goalFound
               ? 'Secret Tunnel Entrance Found!'
               : goalClue
@@ -176,15 +183,19 @@ export const Header: React.FC<HeaderProps> = ({
           }
         >
           <span className="text-[9px] uppercase font-mono text-[#5c5446]">
-            {level === 2 ? 'Exit:' : 'Goal:'}
+            {level === 3 ? 'Floor:' : level === 2 ? 'Exit:' : 'Goal:'}
           </span>
-          {level === 2 ? (
+          {level === 3 ? (
+            <span className="text-[11px] font-black font-mono uppercase text-[#2d6a4f]">
+              Floor 1/3
+            </span>
+          ) : level === 2 ? (
             <span
               className={`text-[11px] font-black font-mono uppercase truncate ${
                 level2TargetFound ? 'text-[#2d6a4f]' : 'text-[#b45309]'
               }`}
             >
-              {level2TargetFound ? '🌟 Exit A♥' : '♥ In Deck'}
+              {level2TargetFound ? '🌟 Exit A♠' : '♠ In Deck'}
             </span>
           ) : (
             <span
